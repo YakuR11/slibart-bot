@@ -7,6 +7,7 @@ const triggers = require('./events/triggers');
 const dd = require('./lib/ddragon');
 const media = require('./lib/media');
 const scheduler = require('./lib/scheduler');
+const activity = require('./activity/server');
 
 if (!config.token) {
     log.error('DISCORD_TOKEN manquant dans le .env');
@@ -40,6 +41,7 @@ client.once(Events.ClientReady, async (c) => {
     }
     media.start();
     scheduler.start(c);
+    activity.start(c);
 
     // lien pour inviter le bot (voir/ecrire, embeds, fichiers, reactions, gerer messages, emojis externes, @here pour la happy hour)
     log.info(`Inviter le bot : https://discord.com/oauth2/authorize?client_id=${c.user.id}&scope=bot+applications.commands&permissions=519232`);

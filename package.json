@@ -5,10 +5,12 @@
   "main": "src/index.js",
   "private": true,
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node scripts/build-activity.js --if-missing && node src/index.js",
     "dev": "node --watch src/index.js",
     "spotify-auth": "node scripts/spotify-auth.js",
-    "check": "node scripts/check.js"
+    "check": "node scripts/check.js",
+    "build": "node scripts/build-activity.js",
+    "dev:activity": "ACTIVITY_DEV=true node scripts/build-activity.js && ACTIVITY_DEV=true node src/index.js"
   },
   "engines": {
     "node": ">=20"
@@ -17,6 +19,13 @@
   "dependencies": {
     "discord.js": "^14.21.0",
     "dotenv": "^16.4.5",
-    "mysql2": "^3.11.5"
+    "mysql2": "^3.11.5",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@discord/embedded-app-sdk": "2.5.0",
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource/shrikhand": "^5.3.0",
+    "esbuild": "^0.25.10"
   }
 }

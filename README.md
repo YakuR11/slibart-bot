@@ -68,7 +68,7 @@ Tout est dans `config/content.json` : images de `=cold`/`=remember`/`=bubble`, p
 | Général | `cold` `remember` `bubble` `trad [langue] <texte>` `musique <type>` `changemot <mot>` `motfav [@user]` |
 | Profil | `profile [@user]` (`p`) · `set <img\|acc\|bio> <valeur>` · `setimg` `setbio` `setacc` · `wacount` |
 | Capitalism | `bank` (`b`) · `work` (`w`) · `gw` · `daily` · `rsa` · `rob <@user>` · `give <@user> <montant>` · `shop` · `buy <slave\|cave\|cadenas>` · `mine` (`m`) |
-| Casino | `gamble <r\|b\|g> <mise>` (`g`) · `slots <mise>` · `blackjack <mise>` (`bj`) · `mines <mise> [bombes]` · `crash <mise> [auto]` · `loto [tickets]` · `duel <@user> <mise>` |
+| Casino | `plinko` (interface) · `gamble <r\|b\|g> <mise>` (`g`) · `slots <mise>` · `blackjack <mise>` (`bj`) · `mines <mise> [bombes]` · `crash <mise> [auto]` · `loto [tickets]` · `duel <@user> <mise>` |
 | Paris | `matchs [foot\|lol]` · `parier <n°> <1\|N\|2> <mise>` · `mesparis` · `elo` |
 | Progression | `cd` · `coffres` · `ouvrir` · `quetes` (`q`) · `succes` · `niveau` (`lvl`) · `rappels` |
 | Classements | `semaine` (saison) · `top <capital\|niveau\|succes\|winstreak\|insult\|rolls\|mine\|pertes\|gains\|streak\|esclaves\|champions>` · `topc` `topi` `topl`... · `slipbank` |
@@ -139,3 +139,56 @@ Ajouter une commande = ajouter un objet dans un fichier de `src/commands/`, elle
 ## Crédit
 
 `=credit <montant>` : emprunt avec **10 % de frais**. Plafond de dette selon le niveau : **5 000 + 3 000 par niveau** (max 250 000). Tant qu'il reste une dette, une part de tout ce qui rentre part à la banque (10 % à 50 %) et `=give` est bloqué (sinon on pourrait emprunter et tout donner à un pote). `=rembourser <montant|all>` pour solder plus vite.
+
+## 🎯 Plinko : le jeu avec une vraie interface (Activity Discord)
+
+Le Plinko s'ouvre **dans Discord**, dans sa propre fenêtre : un plateau animé, le son, des rafales de billes. Tout le vocal joue sur le même plateau et voit les billes des autres en direct. Mêmes Rokbux, même niveau, même saison que le reste du bot. Le serveur tire le chemin de chaque bille, l'interface ne fait que l'animer : impossible de tricher depuis le navigateur.
+
+Mise de 10 à 1 000 000, 3 risques (doux, normal, sale), 8, 12 ou 16 rangées, jusqu'à x1000. Le jeu reverse ~99 % des mises.
+
+### Mise en route (une seule fois, ~15 min)
+
+**1. Secret OAuth** · Developer Portal → ton app → **OAuth2** → *Reset Secret* → copie-le dans le `.env` :
+```
+DISCORD_CLIENT_SECRET=le_secret
+```
+Toujours dans OAuth2 → *Redirects*, ajoute `https://127.0.0.1` (Discord en exige un, il ne sert pas).
+
+**2. Tunnel Cloudflare** (ton domaine doit être sur Cloudflare)
+- dash.cloudflare.com → **Zero Trust** → *Networks* → *Tunnels* → *Create a tunnel* → *Cloudflared* → nom `slibart`
+- copie le jeton affiché (la longue chaîne après `--token`) dans le `.env` :
+  ```
+  CF_TUNNEL_TOKEN=le_jeton
+  ```
+- onglet *Public hostname* : sous-domaine `lab`, ton domaine, service **HTTP** → `bot:3001`
+
+**3. Activer l'Activity** · Developer Portal → ton app → **Activities** → *Settings* → active *Enable Activities*. Puis *URL Mappings* → *Root Mapping* : préfixe `/`, cible `lab.ton-domaine.fr` (sans https).
+
+**4. Lancer**
+```bash
+docker compose --profile tunnel up -d --build
+docker compose logs -f bot     # doit afficher "[activity] Plinko sur le port 3001"
+```
+
+**5. Jouer** · rejoins un vocal → clique sur la **fusée 🚀** (Activités) → choisis le bot. Ou tape **/plinko** n'importe où.
+
+### Tester sur ton PC sans Discord
+
+```
+ACTIVITY_DEV=true
+```
+dans le `.env`, relance, puis ouvre http://localhost:3001/?name=Hicham. **Remets `false` après** : en mode test, on se connecte sous n'importe quel nom (c'est bloqué à travers le tunnel, mais autant ne pas le laisser).
+
+### Ça ne marche pas ?
+- **Écran « Connexion à Discord… » bloqué** : `DISCORD_CLIENT_SECRET` faux ou absent, ou pas de redirect dans OAuth2.
+- **Page blanche / erreur Cloudflare** : le *Public hostname* doit pointer vers `bot:3001` (pas localhost), et le tunnel doit être lancé avec `--profile tunnel`.
+- **Le bot n'apparaît pas dans la liste des Activités** : vérifie *Enable Activities* et le *Root Mapping*, puis redémarre Discord.
+
+### Images de l'Activity (carte dans la liste des Activités)
+
+Developer Portal → ton app → **Activities → Art Assets**, avec les fichiers du dossier `assets/discord/` :
+- **Cover Art** : `cover-16x9.png` et `cover-13x11.png`
+- **Video Preview** : `preview-640x360.mp4` (se lance au survol de la carte)
+- **Embedded Background** : `background-16x9.png`
+
+Et dans **General Information** : **App Icon** = `app-icon-1024.png` (c'est l'icône à côté des pseudos dans le vocal), plus une description courte, par exemple « Lâche des billes, vise les bords. Tout le vocal joue sur le même plateau, jusqu'à ×1000. »

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Plinko du slip</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="cabinet" id="app">
+        <header class="marquee">
+            <h1 class="logo">Plinko</h1>
+            <ul class="players" id="players" aria-label="Joueurs dans le vocal"></ul>
+            <div class="wallet">
+                <span class="level" id="level" title="Ton niveau">niv. –</span>
+                <span class="session" id="session" title="Gains depuis l'ouverture" hidden></span>
+                <span class="balance" id="balance" aria-live="polite">–</span>
+                <button class="icon-btn" id="mute" type="button" aria-label="Couper le son" title="Son">🔊</button>
+            </div>
+        </header>
+
+        <main class="playfield">
+            <div class="stage">
+                <ul class="tribune" id="tribune" aria-label="Tes potes en direct" hidden></ul>
+                <section class="board-wrap" id="board-wrap" aria-label="Plateau">
+                    <canvas id="board"></canvas>
+                    <div class="pops" id="pops" aria-hidden="true"></div>
+                    <div class="streak" id="streak" hidden></div>
+                    <div class="banners" id="banners" aria-live="polite"></div>
+                    <div class="bigwin" id="bigwin" hidden>
+                        <div class="rays" aria-hidden="true"></div>
+                        <div class="bw-box">
+                            <div class="bw-title" id="bw-title">GROS GAIN</div>
+                            <div class="bw-amount" id="bw-amount">0</div>
+                            <div class="bw-mult" id="bw-mult">×10</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <aside class="console">
+                <div class="field">
+                    <label for="bet">Mise</label>
+                    <div class="bet-row">
+                        <input id="bet" type="text" inputmode="numeric" autocomplete="off" value="100">
+                        <button type="button" class="chip" data-bet="half">½</button>
+                        <button type="button" class="chip" data-bet="double">×2</button>
+                        <button type="button" class="chip" data-bet="max">Max</button>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <span class="field-label" id="risk-label">Risque</span>
+                    <div class="seg" role="radiogroup" aria-labelledby="risk-label" id="risk">
+                        <button type="button" role="radio" data-v="low">Doux</button>
+                        <button type="button" role="radio" data-v="medium" aria-checked="true">Normal</button>
+                        <button type="button" role="radio" data-v="high">Sale</button>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <span class="field-label" id="rows-label">Rangées de picots</span>
+                    <div class="seg" role="radiogroup" aria-labelledby="rows-label" id="rows">
+                        <button type="button" role="radio" data-v="8">8</button>
+                        <button type="button" role="radio" data-v="12" aria-checked="true">12</button>
+                        <button type="button" role="radio" data-v="16">16</button>
+                    </div>
+                </div>
+
+                <button type="button" class="drop" id="drop">Lâcher la bille</button>
+                <p class="hint">Maintiens le bouton (ou Espace) pour enchaîner.</p>
+
+                <div class="auto">
+                    <span class="field-label">En rafale</span>
+                    <div class="auto-row" id="auto">
+                        <button type="button" class="chip" data-n="10">10</button>
+                        <button type="button" class="chip" data-n="25">25</button>
+                        <button type="button" class="chip" data-n="50">50</button>
+                        <button type="button" class="chip stop" id="stop" hidden>Stop</button>
+                    </div>
+                </div>
+
+                <div class="history" aria-label="Tes derniers résultats" id="history"></div>
+
+                <div class="feed-wrap">
+                    <span class="field-label">Dans le vocal</span>
+                    <ol class="feed" id="feed"></ol>
+                </div>
+            </aside>
+        </main>
+
+        <div class="toasts" id="toasts" aria-live="polite"></div>
+        <div class="gate" id="gate" hidden>
+            <p id="gate-msg">Connexion à Discord…</p>
+        </div>
+    </div>
+    <script type="module" src="dist/app.js"></script>
+</body>
+</html>
