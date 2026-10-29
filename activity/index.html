@@ -3,13 +3,18 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Plinko du slip</title>
+    <title>Casino du slip</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="cabinet" id="app">
         <header class="marquee">
-            <h1 class="logo">Plinko</h1>
+            <h1 class="logo">Casino</h1>
+            <nav class="tabs" role="tablist" aria-label="Jeux" id="tabs">
+                <button type="button" role="tab" data-view="plinko" aria-selected="true"><span aria-hidden="true">🎯</span> Plinko</button>
+                <button type="button" role="tab" data-view="crash" aria-selected="false"><span aria-hidden="true">🚀</span> Crash<i class="live" id="crash-live" hidden></i></button>
+                <button type="button" role="tab" data-view="shop" aria-selected="false"><span aria-hidden="true">🛍️</span> Boutique</button>
+            </nav>
             <ul class="players" id="players" aria-label="Joueurs dans le vocal"></ul>
             <div class="wallet">
                 <span class="level" id="level" title="Ton niveau">niv. –</span>
@@ -19,29 +24,21 @@
             </div>
         </header>
 
-        <main class="playfield">
+        <!-- ================= PLINKO ================= -->
+        <main class="playfield view" data-view="plinko">
             <div class="stage">
                 <ul class="tribune" id="tribune" aria-label="Tes potes en direct" hidden></ul>
                 <section class="board-wrap" id="board-wrap" aria-label="Plateau">
                     <canvas id="board"></canvas>
                     <div class="pops" id="pops" aria-hidden="true"></div>
                     <div class="streak" id="streak" hidden></div>
-                    <div class="banners" id="banners" aria-live="polite"></div>
-                    <div class="bigwin" id="bigwin" hidden>
-                        <div class="rays" aria-hidden="true"></div>
-                        <div class="bw-box">
-                            <div class="bw-title" id="bw-title">GROS GAIN</div>
-                            <div class="bw-amount" id="bw-amount">0</div>
-                            <div class="bw-mult" id="bw-mult">×10</div>
-                        </div>
-                    </div>
                 </section>
             </div>
 
             <aside class="console">
                 <div class="field">
                     <label for="bet">Mise</label>
-                    <div class="bet-row">
+                    <div class="bet-row" id="bet-row">
                         <input id="bet" type="text" inputmode="numeric" autocomplete="off" value="100">
                         <button type="button" class="chip" data-bet="half">½</button>
                         <button type="button" class="chip" data-bet="double">×2</button>
@@ -91,6 +88,73 @@
             </aside>
         </main>
 
+        <!-- ================= CRASH ================= -->
+        <main class="playfield view" data-view="crash" hidden>
+            <div class="stage">
+                <section class="board-wrap crash-wrap" id="crash-wrap" aria-label="Crash">
+                    <canvas id="crash-canvas"></canvas>
+                    <div class="crash-hud">
+                        <div class="crash-mult" id="crash-mult">1.00×</div>
+                        <div class="crash-sub" id="crash-sub">Connexion…</div>
+                        <div class="crash-bar" id="crash-bar-wrap"><span id="crash-bar"></span></div>
+                    </div>
+                    <div class="crash-hist" id="crash-hist" aria-label="Derniers crashs"></div>
+                </section>
+            </div>
+
+            <aside class="console">
+                <div class="field">
+                    <label for="crash-bet">Mise</label>
+                    <div class="bet-row" id="crash-bet-row">
+                        <input id="crash-bet" type="text" inputmode="numeric" autocomplete="off" value="100">
+                        <button type="button" class="chip" data-bet="half">½</button>
+                        <button type="button" class="chip" data-bet="double">×2</button>
+                        <button type="button" class="chip" data-bet="max">Max</button>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="crash-auto">Encaisser automatiquement à</label>
+                    <div class="bet-row" id="crash-auto-row">
+                        <input id="crash-auto" type="text" inputmode="decimal" autocomplete="off" placeholder="désactivé">
+                        <button type="button" class="chip" data-auto="2">×2</button>
+                        <button type="button" class="chip" data-auto="5">×5</button>
+                        <button type="button" class="chip" data-auto="">Off</button>
+                    </div>
+                </div>
+
+                <button type="button" class="drop crash-btn" id="crash-btn" disabled>Miser</button>
+                <p class="hint" id="crash-hint">Mise pendant le compte à rebours, encaisse avant l'explosion.</p>
+
+                <div class="feed-wrap">
+                    <span class="field-label">Cette manche</span>
+                    <ol class="crash-players" id="crash-players"></ol>
+                </div>
+            </aside>
+        </main>
+
+        <!-- ================= BOUTIQUE ================= -->
+        <main class="shop view" data-view="shop" hidden>
+            <div class="shop-head">
+                <div>
+                    <h2>Boutique</h2>
+                    <p id="shop-sub">Des skins pour frimer devant le vocal. Purement cosmétique.</p>
+                </div>
+                <div class="seg shop-slots" role="tablist" id="shop-slots"></div>
+            </div>
+            <div class="shop-grid" id="shop-grid"></div>
+            <p class="shop-note">🎁 Certains skins ne s'achètent pas : ils tombent des coffres du bot (<code>=ouvrir</code>).</p>
+        </main>
+
+        <div class="banners" id="banners" aria-live="polite"></div>
+        <div class="bigwin" id="bigwin" hidden>
+            <div class="rays" aria-hidden="true"></div>
+            <div class="bw-box">
+                <div class="bw-title" id="bw-title">GROS GAIN</div>
+                <div class="bw-amount" id="bw-amount">0</div>
+                <div class="bw-mult" id="bw-mult">×10</div>
+            </div>
+        </div>
         <div class="toasts" id="toasts" aria-live="polite"></div>
         <div class="gate" id="gate" hidden>
             <p id="gate-msg">Connexion à Discord…</p>

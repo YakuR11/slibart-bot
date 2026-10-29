@@ -26,6 +26,13 @@ async function list(userId) {
     return Object.fromEntries(rows.map((r) => [r.item, Number(r.qty)]));
 }
 
-const label = (item, qty = 1) => `${ITEMS[item]?.emoji || '❔'} ${qty > 1 ? `${qty}x ` : ''}**${ITEMS[item]?.name || item}**`;
+function label(item, qty = 1) {
+    if (String(item).startsWith('skin:')) {
+        const { SKINS, RARITIES } = require('./skins-catalog');
+        const s = SKINS[item.slice(5)];
+        if (s) return `🎨 **${s.name}** (${RARITIES[s.rarity].label})`;
+    }
+    return `${ITEMS[item]?.emoji || '❔'} ${qty > 1 ? `${qty}x ` : ''}**${ITEMS[item]?.name || item}**`;
+}
 
 module.exports = { ITEMS, add, take, list, label };

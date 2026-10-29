@@ -11,6 +11,8 @@ const eco = require('../lib/economy');
 const log = require('../lib/logger');
 const progress = require('../lib/progress');
 const plinko = require('./plinko');
+const crash = require('./crash');
+const skins = require('../lib/skins');
 
 const ROOT = path.join(__dirname, '..', '..', 'activity');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2' };
@@ -120,12 +122,32 @@ function colorFor(room, id) {
 
 function broadcastDrop(room, s, b, except = null) {
     let color = null;
-    for (const ws of rooms.get(room) || []) if (ws.player?.id === s.id) color = ws.player.color;
+    let look = null;
+    for (const ws of rooms.get(room) || []) {
+        if (ws.player?.id === s.id) {
+            color = ws.player.color;
+            look = ws.player.skins;
+        }
+    }
     broadcast(room, {
         type: 'drop',
-        player: { id: s.id, name: s.name, avatar: s.avatar, color },
+        player: { id: s.id, name: s.name, avatar: s.avatar, color, skins: look },
         rows: b.rows, risk: b.risk, path: b.path, mult: b.mult, bet: b.bet, net: b.payout - b.bet,
     }, except);
+}
+
+/** un joueur a change de skin : tout le monde le voit tout de suite */
+function refreshLook(id, equipped) {
+    for (const [room, set] of rooms) {
+        let hit = false;
+        for (const ws of set) {
+            if (ws.player?.id === id) {
+                ws.player.skins = equipped;
+                hit = true;
+            }
+        }
+        if (hit) broadcast(room, { type: 'players', players: players(room) });
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -183,6 +205,27 @@ async function api(req, res, route) {
         });
         if (out.error) return send(res, out.soft ? 429 : 400, out);
         return send(res, 200, out);
+    }
+
+    // ---- boutique de skins ----
+    if (route === '/api/shop' && req.method === 'GET') {
+        const [owned, equipped, p] = await Promise.all([skins.owned(s.id), skins.equipped(s.id), db.getProfile(s.id)]);
+        return send(res, 200, { owned: [...owned], equipped, balance: p.rb });
+    }
+    if (route === '/api/shop/buy' && req.method === 'POST') {
+        const { id } = await readJson(req);
+        const r = await skins.buy(s.id, String(id || ''));
+        if (r.error) return send(res, 400, r);
+        log.info(`[boutique] ${s.name} achete ${id} (${r.price})`);
+        const [owned, p] = await Promise.all([skins.owned(s.id), db.getProfile(s.id)]);
+        return send(res, 200, { ok: true, owned: [...owned], balance: p.rb });
+    }
+    if (route === '/api/shop/equip' && req.method === 'POST') {
+        const { id } = await readJson(req);
+        const r = await skins.equip(s.id, String(id || ''));
+        if (r.error) return send(res, 400, r);
+        refreshLook(s.id, r.equipped);
+        return send(res, 200, r);
     }
 
     if (route === '/api/top' && req.method === 'GET') {
@@ -252,6 +295,7 @@ function start(discordClient) {
         log.warn('[activity] activity/dist/app.js absent : lance "npm run build" (fait automatiquement par Docker)');
     }
     client = discordClient;
+    crash.init({ broadcast, alive: (room) => (rooms.get(room)?.size || 0) > 0 });
 
     const server = http.createServer(async (req, res) => {
         // Discord peut prefixer les requetes par /.proxy selon les versions : on accepte les deux
@@ -283,6 +327,10 @@ function start(discordClient) {
         const reply = (m) => ws.readyState === 1 && ws.send(JSON.stringify(m));
         reply({ type: 'hello', color: ws.player.color });
         broadcast(room, { type: 'players', players: players(room) });
+        skins.equipped(s.id).then((eq) => {
+            ws.player.skins = eq;
+            broadcast(room, { type: 'players', players: players(room) });
+        }).catch(() => {});
 
         ws.on('message', (raw) => {
             let m;
@@ -297,6 +345,16 @@ function start(discordClient) {
                 ws.player.rows = c.rows;
                 ws.player.risk = c.risk;
                 return broadcast(room, { type: 'cfg', id: s.id, rows: c.rows, risk: c.risk }, ws);
+            }
+
+            // ---- crash ----
+            if (m.type === 'crash:join') return reply(crash.join(room));
+            if (m.type === 'crash:bet' || m.type === 'crash:cancel' || m.type === 'crash:cash') {
+                const run = m.type === 'crash:bet'
+                    ? crash.bet(room, { ...ws.player }, m, reply)
+                    : m.type === 'crash:cancel' ? crash.cancel(room, s.id) : Promise.resolve(crash.cashout(room, s.id));
+                return run.then((r) => reply({ type: 'crash:res', id: m.id, ...r }))
+                    .catch((e) => { log.error('[crash]', e); reply({ type: 'crash:res', id: m.id, error: 'Erreur serveur.' }); });
             }
 
             if (m.type === 'drop') {

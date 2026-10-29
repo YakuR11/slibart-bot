@@ -105,12 +105,14 @@ function arp(steps, { base = 523.25, gap = 0.07, at = 0, gain = 0.06, type = 'tr
 }
 
 let lastTick = 0;
+let engineNodes = null;
 
 export const sound = {
     unlock() { ctx(); },
     get muted() { return muted; },
     toggle() {
         muted = !muted;
+        if (muted) this.engine(false);
         try { localStorage.setItem('plinko-muted', muted ? '1' : '0'); } catch { /* rien */ }
         return muted;
     },
@@ -195,6 +197,74 @@ export const sound = {
     friendWin(tier = 1) {
         arp([0, 2, 4, 7], { base: 392, gap: 0.07, gain: 0.04 });
         for (let i = 0; i < 4 + tier * 3; i++) coin(0.15 + Math.random() * 0.6, 0.9 + Math.random() * 0.3, 0.018);
+    },
+
+    // ---------------- crash ----------------
+    /** moteur de la fusee : un grondement qui monte avec le multiplicateur */
+    engine(on) {
+        if (!on || muted) {
+            if (engineNodes) {
+                const { o, g, a } = engineNodes;
+                g.gain.setTargetAtTime(0.0001, a.currentTime, 0.08);
+                o.stop(a.currentTime + 0.4);
+                engineNodes = null;
+            }
+            return;
+        }
+        if (engineNodes) return;
+        const a = ctx();
+        if (!a) return;
+        const o = a.createOscillator();
+        const f = a.createBiquadFilter();
+        const g = a.createGain();
+        o.type = 'sawtooth';
+        o.frequency.value = 55;
+        f.type = 'lowpass';
+        f.frequency.value = 380;
+        g.gain.value = 0.0001;
+        g.gain.setTargetAtTime(0.035, a.currentTime, 0.2);
+        o.connect(f).connect(g).connect(master);
+        o.start();
+        engineNodes = { o, f, g, a };
+    },
+    engineAt(m) {
+        if (!engineNodes) return;
+        const { o, f, a } = engineNodes;
+        const k = Math.log(Math.max(1, m));
+        o.frequency.setTargetAtTime(55 + k * 38, a.currentTime, 0.1);
+        f.frequency.setTargetAtTime(380 + k * 500, a.currentTime, 0.1);
+    },
+    countdown(sec) {
+        osc(sec === 1 ? 880 : 660, { type: 'triangle', dur: 0.09, gain: 0.04 });
+    },
+    chip(mine = false) {
+        if (!allow(1)) return;
+        noise({ dur: 0.04, gain: mine ? 0.06 : 0.025, freq: 3200, q: 3 });
+        osc(mine ? 1300 : 1100, { type: 'square', dur: 0.03, gain: mine ? 0.015 : 0.006 });
+    },
+    cashout(mult) {
+        coin(0, 1.1, 0.04);
+        coin(0.06, 1.25, 0.035);
+        arp([0, 2, 4, 7], { gap: 0.05, gain: 0.05 });
+        if (mult >= 3) for (let i = 0; i < 6; i++) coin(0.25 + i * 0.06, 0.9 + Math.random() * 0.4, 0.02);
+    },
+    friendCash() {
+        if (!allow(2)) return;
+        coin(0, 0.95, 0.018);
+    },
+    boom() {
+        osc(70, { dur: 0.7, gain: 0.4, slide: -45 });
+        noise({ dur: 0.6, gain: 0.12, type: 'lowpass', freq: 1800, slideTo: 200 });
+        noise({ dur: 0.15, gain: 0.08, freq: 5000, q: 1 });
+    },
+    // ---------------- boutique ----------------
+    purchase() {
+        arp([0, 2, 4, 5, 7, 9], { gap: 0.05, gain: 0.05 });
+        for (let i = 0; i < 8; i++) coin(0.1 + i * 0.05, 0.9 + Math.random() * 0.4, 0.022);
+    },
+    equip() {
+        osc(880, { type: 'sine', dur: 0.08, gain: 0.04 });
+        osc(1320, { type: 'sine', dur: 0.12, gain: 0.035, at: 0.06 });
     },
 
     error() {

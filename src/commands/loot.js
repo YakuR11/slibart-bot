@@ -4,6 +4,7 @@ const db = require('../db');
 const eco = require('../lib/economy');
 const cd = require('../lib/cooldowns');
 const inv = require('../lib/inventory');
+const skins = require('../lib/skins');
 const progress = require('../lib/progress');
 const paris = require('../lib/paris');
 const ui = require('../lib/ui');
@@ -19,22 +20,25 @@ const handler = () => require('../lib/handler');
 // [poids, type, min, max]
 const LOOT = {
     coffre: [
-        [72, 'rb', 150, 600],
+        [69, 'rb', 150, 600],
         [14, 'xp', 60, 160],
+        [3, 'skin', 'commun', 'rare'],
         [8, 'cadenas', 1, 1],
         [5, 'coffre_rare', 1, 1],
         [1, 'rb', 3000, 5000], // le petit miracle
     ],
     coffre_rare: [
-        [70, 'rb', 800, 2500],
+        [64, 'rb', 800, 2500],
         [14, 'xp', 250, 500],
+        [6, 'skin', 'rare', 'epique'],
         [8, 'cadenas', 2, 3],
         [6, 'coffre_legend', 1, 1],
         [2, 'rb', 8000, 15000],
     ],
     coffre_legend: [
-        [80, 'rb', 5000, 15000],
+        [72, 'rb', 5000, 15000],
         [12, 'xp', 1200, 2500],
+        [8, 'skin', 'epique', 'legendaire'],
         [6, 'coffre_rare', 3, 3],
         [2, 'rb', 50000, 50000],
     ],
@@ -51,6 +55,13 @@ function roll(table) {
 }
 
 async function grant(userId, [, type, min, max]) {
+    if (type === 'skin') {
+        const id = await skins.fromChest(userId, min, max);
+        if (id) return { text: `${skins.label(id)} — équipe-le dans la **Boutique** de l'Activity 🚀`, big: skins.SKINS[id].rarity === 'legendaire' };
+        // il a deja tout : on compense en Rokbux
+        const pay = await eco.addRb(userId, skins.RARITIES[max].price / 5);
+        return { text: `🎨 Tu as déjà tous ces skins → **+${fmt(pay.net)}** ${RB()}`, big: false };
+    }
     const amount = randInt(min, max);
     if (type === 'rb') {
         const pay = await eco.addRb(userId, amount);
@@ -80,6 +91,8 @@ module.exports = [
         async run(ctx) {
             const items = await inv.list(ctx.user.id);
             const lines = Object.keys(inv.ITEMS).filter((k) => items[k]).map((k) => `${inv.label(k, items[k])}`);
+            const mySkins = Object.keys(items).filter(skins.isSkin);
+            if (mySkins.length) lines.push(`🎨 **${mySkins.length}** skin(s) : ${mySkins.map((k) => skins.SKINS[k.slice(5)]?.name).filter(Boolean).join(', ')}\n-# Équipe-les dans la Boutique de l'Activity (\`/plinko\`)`);
             const crates = ORDER.reduce((a, k) => a + (items[k] || 0), 0);
             const embed = new EmbedBuilder()
                 .setColor(ui.COLORS.quest)

@@ -5,6 +5,8 @@ COPY package*.json ./
 RUN npm ci
 COPY activity ./activity
 COPY scripts ./scripts
+# le catalogue des skins est partage entre le bot et l'interface
+COPY src/lib/skins-catalog.js ./src/lib/skins-catalog.js
 RUN node scripts/build-activity.js
 
 # 2) image finale du bot (sans les outils de build)
