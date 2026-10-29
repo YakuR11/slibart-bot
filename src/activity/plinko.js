@@ -4,7 +4,8 @@ const crypto = require('node:crypto');
 const { EmbedBuilder } = require('discord.js');
 const config = require('../config');
 const eco = require('../lib/economy');
-const casino = require('../lib/casino');
+const db = require('../db');
+const paris = require('../lib/paris');
 const progress = require('../lib/progress');
 const announce = require('../lib/announce');
 const { fmt } = require('../lib/utils');
@@ -81,41 +82,113 @@ function drop(player, params, hooks = {}) {
 }
 
 async function play(player, { bet, risk, rows }, hooks) {
-    if (!(await eco.takeRb(player.id, bet))) {
-        return { error: `Solde insuffisant (${fmt(await eco.balance(player.id))}).`, broke: true };
-    }
+    const id = String(player.id);
     const path = rollPath(rows);
     const bucket = path.reduce((a, b) => a + b, 0);
     const mult = TABLES[rows][risk][bucket];
     const payout = Math.floor(bet * mult);
+
+    // Chemin rapide (joueur sans dette) : mise prise et gain verse en UNE requete atomique.
+    // C'est la seule partie qui bloque la bille suivante, donc elle doit etre courte.
+    let received = payout;
+    let cut = 0;
+    const fast = await db.exec(
+        'UPDATE profile SET rb = rb - ? + ? WHERE id_user = ? AND rb >= ? AND debt <= 0',
+        [bet, payout, id, bet],
+    );
+    if (!fast.affectedRows) {
+        // endette (une part du gain rembourse la dette) ou solde insuffisant
+        if (!(await eco.takeRb(id, bet))) {
+            return { error: `Solde insuffisant (${fmt(await eco.balance(id))}).`, broke: true };
+        }
+        const pay = payout > 0 ? await eco.addRb(id, payout) : { net: 0, cut: 0 };
+        received = pay.net;
+        cut = pay.cut;
+    }
+    const [[row]] = await db.pool.query('SELECT rb FROM profile WHERE id_user = ?', [id]);
+    const bal = Number(row?.rb || 0);
     hooks.onBall?.({ path, bucket, mult, bet, payout, rows, risk });
 
-    const ctx = { user: { id: player.id } };
-    const { net, bal, cut } = await casino.settle(ctx, bet, payout);
-    const received = net + bet;
-
-    // le reste (XP, quetes, annonce) ne bloque pas la bille suivante
-    after(player, { bet, net, mult, allin: bal - received <= 0 }, hooks);
+    const net = received - bet;
+    later(id, () => stats(id, bet, payout, received));
+    round(player, { bet, net, allin: received >= bal }, hooks);
+    if (net >= BIG_WIN) announceWin(player, net, mult, bet);
 
     return { path, bucket, mult, bet, payout, received, net, cut, balance: bal, notices: [] };
 }
 
-function after(player, { bet, net, mult, allin }, hooks) {
-    (async () => {
+/** Taches de fond d'un joueur, une a la fois, sans jamais bloquer ses billes */
+const background = new Map();
+function later(id, fn) {
+    const prev = background.get(id) || Promise.resolve();
+    const next = prev.then(fn).catch((e) => log.warn('[plinko] stats', e.message));
+    background.set(id, next);
+    next.finally(() => { if (background.get(id) === next) background.delete(id); });
+}
+
+/** Stats de gains/pertes et part de la banque du slip (pas de "partie" comptee ici, voir round()) */
+async function stats(id, bet, payout, received) {
+    const pocket = received - bet;
+    if (pocket > 0) {
+        await eco.bump(id, { wincount: pocket });
+        await db.exec('UPDATE profile SET maxwin = GREATEST(maxwin, ?) WHERE id_user = ?', [pocket, id]);
+    } else if (pocket < 0) {
+        await eco.bump(id, { pertecount: -pocket });
+    }
+    if (bet > payout) await eco.toCasino(bet - payout);
+}
+
+/**
+ * Anti-farm : une rafale de billes = UNE partie pour la progression.
+ * Toutes les billes lancees dans une fenetre de 5 s sont regroupees : 1 partie, gagnee si le
+ * total est positif. Sinon on spammait des billes a 10 pour farmer niveaux, quetes et succes
+ * ("Accro", "Pilier du casino", series de 10...) qui rapportent bien plus que la mise.
+ */
+const ROUND_MS = 5000;
+const rounds = new Map();
+
+function round(player, { bet, net, allin }, hooks) {
+    let r = rounds.get(player.id);
+    if (!r) {
+        r = { player, wager: 0, net: 0, maxBet: 0, allin: false, balls: 0 };
+        rounds.set(player.id, r);
+        r.timer = setTimeout(() => closeRound(player.id), ROUND_MS);
+    }
+    r.hooks = hooks;
+    r.balls++;
+    r.wager += bet;
+    r.net += net;
+    r.maxBet = Math.max(r.maxBet, bet);
+    r.allin = r.allin || allin;
+}
+
+function closeRound(id) {
+    const r = rounds.get(id);
+    rounds.delete(id);
+    if (!r) return;
+    later(id, async () => {
+        const won = r.net > 0;
+        await eco.bump(id, { gamblecount: 1 });
+        await progress.streak(id, won); // une rafale a 0 casse la serie
+        await db.exec(
+            'INSERT INTO weekly (week, id_user, net, games) VALUES (?, ?, ?, 1) ON DUPLICATE KEY UPDATE net = net + VALUES(net), games = games + 1',
+            [paris.weekKey(), id, r.net],
+        );
         const notices = (await progress.track(
-            { user: { id: player.id, username: player.name }, channel: null, displayName: player.name },
-            { play: 1, win: net > 0 ? 1 : 0, wager: bet },
-            { bet, net, allin },
+            { user: { id, username: r.player.name }, channel: null, displayName: r.player.name },
+            { play: 1, win: won ? 1 : 0, wager: r.wager },
+            { bet: r.maxBet, net: r.net, allin: r.allin },
         )) || [];
-        if (notices.length) hooks.onNotices?.(notices.map(clean));
-        if (net >= BIG_WIN) {
-            const embed = new EmbedBuilder()
-                .setColor('#f1c40f')
-                .setDescription(`🚨 **${player.name}** vient de gagner **${fmt(net)}** ${config.rbEmoji} au **Plinko** (x${mult}, mise ${fmt(bet)}) !\n-# 🚀 Lance l'activité depuis un vocal pour jouer`);
-            if (player.user?.displayAvatarURL) embed.setAuthor({ name: player.name, iconURL: player.user.displayAvatarURL({ extension: 'png', size: 64 }) });
-            announce.send({ embeds: [embed] }).catch(() => {});
-        }
-    })().catch((e) => log.warn('[plinko] progression', e.message));
+        if (notices.length) r.hooks?.onNotices?.(notices.map(clean));
+    });
+}
+
+function announceWin(player, net, mult, bet) {
+    const embed = new EmbedBuilder()
+        .setColor('#f1c40f')
+        .setDescription(`🚨 **${player.name}** vient de gagner **${fmt(net)}** ${config.rbEmoji} au **Plinko** (x${mult}, mise ${fmt(bet)}) !\n-# 🚀 Lance l'activité depuis un vocal pour jouer`);
+    if (player.user?.displayAvatarURL) embed.setAuthor({ name: player.name, iconURL: player.user.displayAvatarURL({ extension: 'png', size: 64 }) });
+    announce.send({ embeds: [embed] }).catch(() => {});
 }
 
 /** retire le markdown Discord des notifications (affichees en HTML dans l'Activity) */
