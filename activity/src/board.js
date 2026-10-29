@@ -88,8 +88,12 @@ export class Board {
         const box = this.canvas.parentElement.getBoundingClientRect();
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const min = this.mini ? 60 : 200;
-        this.W = Math.max(min, box.width);
-        this.H = Math.max(min, box.height);
+        const W = Math.max(min, Math.round(box.width));
+        // filet de securite : jamais plus haut que la fenetre visible
+        const H = Math.max(min, Math.round(Math.min(box.height, this.mini ? box.height : window.innerHeight)));
+        if (W === this.W && H === this.H && dpr === this.dpr) return;
+        this.W = W;
+        this.H = H;
         this.dpr = dpr;
         for (const c of [this.canvas, this.static]) {
             c.width = Math.round(this.W * dpr);
@@ -472,7 +476,15 @@ export class Board {
         // billes : les potes d'abord, la mienne par-dessus
         for (const b of this.balls) if (!b.mine) this.drawBall(b, now);
         for (const b of this.balls) if (b.mine) this.drawBall(b, now);
-        if (!this.mini) for (const b of this.balls) if (b.label && b.pts) this.drawLabel(b);
+        if (!this.mini) {
+            const front = new Map();
+            for (const b of this.balls) {
+                if (!b.label || !b.pts) continue;
+                const k = b.labelKey ?? b;
+                if (!front.has(k) || b.y > front.get(k).y) front.set(k, b);
+            }
+            for (const b of front.values()) this.drawLabel(b);
+        }
         ctx.restore();
 
         // vignette d'anticipation

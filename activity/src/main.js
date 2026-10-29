@@ -507,9 +507,9 @@ function onFriendDrop(msg) {
     });
     // meme plateau que moi : sa bille tombe aussi chez moi, avec sa tete dessus
     if (msg.rows === state.rows && board.balls.length < 80) {
-        // un seul nom par pote a l'ecran (sa derniere bille), sinon c'est illisible en rafale
-        if (f.labelled) f.labelled.ball.label = null;
-        f.labelled = board.addBall({
+        // un seul nom par pote a l'ecran (sur sa bille la plus avancee), sinon c'est illisible en rafale
+        board.addBall({
+            labelKey: f.id,
             path: msg.path,
             color: f.color,
             img: avatarImg(f.player.avatar),
