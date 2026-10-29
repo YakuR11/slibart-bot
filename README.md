@@ -191,4 +191,4 @@ Developer Portal → ton app → **Activities → Art Assets**, avec les fichier
 - **Video Preview** : `preview-640x360.mp4` (se lance au survol de la carte)
 - **Embedded Background** : `background-16x9.png`
 
-Et dans **General Information** : une description courte, par exemple « Lâche des billes, vise les bords. Tout le vocal joue sur le même plateau, jusqu'à ×1000. »
+Et dans **General Information** : **App Icon** = `app-icon-1024.png` (c'est l'icône à côté des pseudos dans le vocal), plus une description courte, par exemple « Lâche des billes, vise les bords. Tout le vocal joue sur le même plateau, jusqu'à ×1000. »
