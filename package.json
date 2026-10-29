@@ -1,0 +1,22 @@
+{
+  "name": "slibart-puant",
+  "version": "2.1.0",
+  "description": "Bot Discord du serveur : economie Rokbux, casino, duels, champions LoL, profils, musique",
+  "main": "src/index.js",
+  "private": true,
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "spotify-auth": "node scripts/spotify-auth.js",
+    "check": "node scripts/check.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^14.21.0",
+    "dotenv": "^16.4.5",
+    "mysql2": "^3.11.5"
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "_info": "Tout le contenu modifiable du bot est ici. Pas besoin de toucher au code pour changer une image, une playlist ou un trigger. Redemarre le bot apres modif.",
+
+  "statuses": ["je sens mauvais", "=help", "compter vos insultes", "miner du roknit", "le casino du slip"],
+
+  "defaultProfileImage": "https://i.pinimg.com/736x/be/d0/ba/bed0ba36ef572fe44e749ba3a943da46.jpg",
+  "presetProfileImages": [
+    "https://i.pinimg.com/736x/be/d0/ba/bed0ba36ef572fe44e749ba3a943da46.jpg",
+    "http://www.image-heberg.fr/files/17330846284031685071.png",
+    "http://www.image-heberg.fr/files/17330846421043891689.png",
+    "http://www.image-heberg.fr/files/1733084666443046122.png",
+    "http://www.image-heberg.fr/files/1733084689710596775.png",
+    "http://www.image-heberg.fr/files/17330847071681378702.png"
+  ],
+  "presetProfileImagesPreview": "http://www.image-heberg.fr/files/17330845781513106472.png",
+
+  "helpImage": "https://i.pinimg.com/736x/a8/8c/3d/a88c3dfebc4a18a172e10e138021224d.jpg",
+  "slipbankThumbnail": "https://www.frenchmarket.eu/31753-medium_default/boxer-homme-dollars.webp",
+
+  "cold": {
+    "images": [
+      "https://media.discordapp.net/attachments/1061349342188937296/1312177197460619355/Capture_decran_2024-11-08_182753.png",
+      "https://preview.redd.it/what-are-some-cool-lookism-panels-v0-x6bxp2ucbe8b1.png?width=1080&format=png&auto=webp&s=3fb7d09291d6dd19b1d29cc3cd5b8af6d7835bc9",
+      "https://preview.redd.it/coldest-lookism-panel-2023-version-v0-z63hmfxajdac1.jpeg?width=719&format=pjpg&auto=webp&s=2ec6417835286a7cd7544adc28409c4d0cd84b11",
+      "https://media1.tenor.com/m/dOYvFgwDB1UAAAAd/better-call-saul-breaking-bad.gif"
+    ],
+    "special": {
+      "1061087481405132902": {
+        "title": "froid de mze.",
+        "description": "Ain't gonna lie, mohammed is such a cold guy.",
+        "image": "https://media.discordapp.net/attachments/1061349342188937296/1312188978014847016/image.png"
+      },
+      "987489832089571379": {
+        "title": "tu n'es pas cold rigel :joy: :joy:",
+        "description": "THOSE WHO KNOW : :skull:",
+        "image": "https://media.discordapp.net/attachments/1312158587585302550/1312187426147663912/image.png"
+      }
+    }
+  },
+
+  "remember": {
+    "title": "never forget 29/11/2024",
+    "description": "those who know :skull: :skull:",
+    "images": [
+      "https://media.discordapp.net/attachments/1048964640849281234/1312192832156729374/image.png",
+      "https://media.discordapp.net/attachments/769188153680461834/1312192439645245482/image.png",
+      "https://media.discordapp.net/attachments/769188153680461834/1312192405910589550/image.png",
+      "https://media.discordapp.net/attachments/769188153680461834/1312191776408207480/image.png",
+      "https://media.discordapp.net/attachments/769188153680461834/1312192348452814858/image.png"
+    ]
+  },
+
+  "bubble": [
+    "https://media1.tenor.com/m/6GUCu3ZCoKEAAAAd/cat-kitten.gif",
+    "https://media1.tenor.com/m/58TlLopaKgAAAAAd/discord-mod-discord.gif",
+    "https://media1.tenor.com/m/2wKV0-cGYgcAAAAd/kinoplex-steak.gif",
+    "https://media1.tenor.com/m/kv_slv2VEs4AAAAd/no-body-asked-man-talking-to-wall.gif",
+    "https://media1.tenor.com/m/FqEJsgUkMvMAAAAd/speech-bubble-png-speech-bubble.gif",
+    "https://media1.tenor.com/m/3h6XeLyZnWoAAAAd/kira-death-note.gif",
+    "https://media1.tenor.com/m/g2PPA7RBXhoAAAAd/emoji-text-bubble.gif",
+    "https://cdn.discordapp.com/attachments/790037118482120734/934280502469361714/224AB0DF-A186-45E0-ADC8-B9326950D665.gif",
+    "https://media.discordapp.net/attachments/360103749844336640/1007800200200466563/DF8A73E4-3811-4BA0-8D90-E7D35602A1DC.gif",
+    "https://cdn.discordapp.com/attachments/605485189078188062/1041423432778272838/age.gif",
+    "https://media.discordapp.net/attachments/988911928887869461/1051611755266179163/MemeFeedBot-1.gif",
+    "https://media.discordapp.net/attachments/717498714259980378/989230790388895804/image_2022-03-03_033057.gif",
+    "https://cdn.discordapp.com/attachments/929807268994744340/1196262770442784869/lol.gif",
+    "https://media.discordapp.net/attachments/1117926467028918283/1120755261712384010/FAE2494F-5C73-4FE6-86A0-259AC5A0E29E.gif"
+  ],
+
+  "playlists": {
+    "all": "4wg5fUhGcvk8NShbYgX3ko",
+    "bzr": "62r5sGoajQeBCjPfrlRd5N",
+    "chill": "2xqUEodosCjJubWouVxtp2",
+    "rock": "7FKUIchYBkneK1dtLmBp8G",
+    "kj": "3uTfnSgEr8Mx4hoq6FyYJr",
+    "eurobeat": "2HzLJDqiqjWT265grojFCB"
+  },
+
+  "bankQuotes": [
+    "Money in tha bank 📈",
+    "Du fric et une brunasse 💸",
+    "Qu'Allah nous accorde la vida loca 🤲",
+    "Le monde chico, et tout ce qu'il y a dedans 🌍"
+  ],
+
+  "triggers": [
+    { "match": "pasderaidpourajourdhui", "reply": "raid dans ta gueule", "repeat": 5 },
+    { "match": "wawa", "reply": "$wa", "repeat": 5 }
+  ],
+
+  "randomHeckle": {
+    "userId": "987489832089571379",
+    "chance": 60,
+    "message": "FERME TA GUEULE RIGEL"
+  },
+
+  "rollCommands": ["$wa", "$ha", "$ma", "$w", "$m", "$h"],
+
+  "insults": [
+    "pute", "fdp", "pd", "tana", "salope", "bitch", "tdc", "cul", "salaud", "bougnoule", "bougn",
+    "meteque", "connard", "con", "encule", "sodomite", "negre", "negro", "nigga", "negresse",
+    "batard", "shit", "pedo", "pedophile", "bamboula", "noiraud", "fuck", "hoe", "hoes", "merde",
+    "putain", "connerie", "enfoire", "enfoirer", "nique", "tdb", "tg", "ntm", "slp", "suce",
+    "ftg", "ftgl", "ntmlp", "tgl", "fizdeup", "fisdeup", "bite", "chatte", "chienne", "gueule"
+  ]
+}
