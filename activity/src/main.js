@@ -1,10 +1,13 @@
 import { DiscordSDK } from '@discord/embedded-app-sdk';
 import { Board, bucketColor, multLabel, reduceMotion } from './board.js';
 import { sound } from './sound.js';
+import { CrashView } from './crash.js';
+import { ShopView } from './shop.js';
+import { DEFAULTS, lookOf, ballColor, applyTable, frameAttrs } from './looks.js';
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Math.trunc(Number(n) || 0).toLocaleString('fr-FR').replace(/ | /g, ' ');
-const ME_COLOR = '#ffd76a';
+const ME_COLOR = '#ffd76a'; // couleur de mon nom dans les listes
 
 const state = {
     cfg: null,
@@ -21,6 +24,8 @@ const state = {
     sessionNet: 0,
     streak: 0,
     needSync: false,
+    skins: { ...DEFAULTS }, // mes skins equipes
+    view: 'plinko',
 };
 
 /**
@@ -175,13 +180,19 @@ function tierOf(mult) {
 
 function bigWin(rec, pos) {
     const tier = tierOf(rec.mult);
-    const net = rec.payout - rec.bet;
-    const seconds = [0, 1.4, 2.4, 3.6][tier];
     board.shake([0, 7, 11, 16][tier]);
     board.burst(pos.x, pos.y, { kind: 'coin', n: 18 + tier * 14, power: 1.2 + tier * 0.25 });
     board.burst(pos.x, pos.y, { kind: 'confetti', n: 20 + tier * 10, power: 1.1 });
     board.rain(30 + tier * 50);
     flashBoard();
+    showBigWin(rec.mult, rec.payout - rec.bet, rec.bet);
+}
+
+/** ecran GROS GAIN / MEGA GAIN / JACKPOT + compteur (commun a tous les jeux) */
+function showBigWin(mult, net, bet) {
+    const tier = tierOf(mult);
+    if (!tier) return;
+    const seconds = [0, 1.4, 2.4, 3.6][tier];
     sound.bigWin(tier, seconds);
 
     // un gain plus petit ne remplace pas un plus gros deja a l'ecran
@@ -191,7 +202,7 @@ function bigWin(rec, pos) {
     el.className = `bigwin t${tier}`;
     el.hidden = false;
     $('bw-title').textContent = ['', 'GROS GAIN', 'MÉGA GAIN', 'JACKPOT'][tier];
-    $('bw-mult').textContent = `×${rec.mult} · mise ${fmt(rec.bet)}`;
+    $('bw-mult').textContent = `×${mult} · mise ${fmt(bet)}`;
     cancelAnimationFrame(big.raf);
     clearTimeout(big.timer);
     const t0 = performance.now() + 350;
@@ -269,8 +280,11 @@ function drop() {
 
     const rec = { id: ++state.seq, bet, rows: state.rows, risk: state.risk, settled: false, landed: false, received: 0, payout: 0, mult: null };
     recs.set(rec.id, rec);
+    const look = lookOf(state.skins, 'ball');
     rec.ball = board.addBall({
-        color: ME_COLOR,
+        color: ballColor(look),
+        look,
+        trailLook: lookOf(state.skins, 'trail'),
         mine: true,
         onPeg: (r, b) => sound.peg(r, rec.rows, true, b.slow < 1),
         onTension: (level, remaining) => sound.tension(level, remaining),
@@ -439,7 +453,12 @@ function ensureFriend(p) {
     f.player = { id: p.id, name: p.name, avatar: p.avatar };
     f.color = p.color || f.color || '#4fd1ff';
     f.li.style.setProperty('--c', f.color);
-    f.img.src = p.avatar;
+    if (p.skins) {
+        f.skins = p.skins;
+        frameAttrs(f.img, p.skins);
+        f.board.setTheme(lookOf(p.skins, 'board'));
+    }
+    if (f.img.getAttribute('src') !== p.avatar) f.img.src = p.avatar;
     f.name.textContent = p.name;
     if (p.rows && p.risk) setFriendCfg(f, p.rows, p.risk);
     return f;
@@ -469,8 +488,8 @@ function renderPlayers(list) {
         const li = document.createElement('li');
         li.style.backgroundImage = `url("${p.avatar}")`;
         li.title = p.name;
-        if (p.id === state.me?.id) li.className = 'me';
-        else if (p.color) li.style.boxShadow = `0 0 0 2px ${p.color}`;
+        li.style.setProperty('--c', p.id === state.me?.id ? '#ffd76a' : (p.color || '#cdbb9f'));
+        frameAttrs(li, p.skins);
         return li;
     }));
     const ids = new Set(list.map((p) => p.id));
@@ -490,9 +509,11 @@ function onFriendDrop(msg) {
     if (!f) return;
     setFriendCfg(f, msg.rows, msg.risk);
     const net = Math.floor(msg.net);
+    const fl = msg.player.skins || f.skins;
     f.board.addBall({
         path: msg.path,
         color: f.color,
+        look: fl ? lookOf(fl, 'ball') : null,
         onLand: () => {
             f.net += net;
             renderFriendInfo(f);
@@ -513,6 +534,8 @@ function onFriendDrop(msg) {
             path: msg.path,
             color: f.color,
             img: avatarImg(f.player.avatar),
+            look: fl ? lookOf(fl, 'ball') : null,
+            trailLook: fl ? lookOf(fl, 'trail') : null,
             label: firstName(f.player.name),
             onPeg: (r) => sound.peg(r, msg.rows, false),
             onLand: (k, pos) => {
@@ -526,22 +549,27 @@ function onFriendDrop(msg) {
 
 function friendBigWin(f, msg, net) {
     const tier = tierOf(msg.mult);
-    sound.friendWin(tier);
     board.rain(20 + tier * 25, [f.color, '#ffd76a', '#f7ebd7']);
     f.li.classList.remove('hot');
     void f.li.offsetWidth;
     f.li.classList.add('hot');
+    banner(f.player, f.color, `${['', 'gros gain', 'MÉGA GAIN', 'JACKPOT'][tier]} · ${multLabel(msg.mult)} au Plinko`, net, tier);
+}
+
+/** bandeau en haut : un pote vient de gagner gros (Plinko ou Crash) */
+function banner(player, color, text, net, tier = 1) {
+    sound.friendWin(tier);
     const el = document.createElement('div');
     el.className = 'banner';
-    el.style.setProperty('--c', f.color);
+    el.style.setProperty('--c', color);
     const img = document.createElement('img');
-    img.src = f.player.avatar;
+    img.src = player.avatar;
     img.alt = '';
     const mid = document.createElement('div');
     const b = document.createElement('b');
-    b.textContent = f.player.name;
+    b.textContent = player.name;
     const small = document.createElement('small');
-    small.textContent = `${['', 'gros gain', 'MÉGA GAIN', 'JACKPOT'][tier]} · ${multLabel(msg.mult)}`;
+    small.textContent = text;
     mid.append(b, small);
     const amt = document.createElement('span');
     amt.className = 'amt';
@@ -562,6 +590,7 @@ function connectRoom(attempt = 0) {
     state.ws = ws;
     ws.onopen = () => {
         attempt = 0;
+        crash.join();
         wsSend({ type: 'cfg', rows: state.rows, risk: state.risk });
     };
     ws.onmessage = (e) => {
@@ -574,6 +603,8 @@ function connectRoom(attempt = 0) {
             case 'err': if (rec) onErr(rec, m); else if (m.fatal) gate(m.error); break;
             case 'notices': for (const n of m.list || []) toast(n); break;
             case 'players': renderPlayers(m.players || []); break;
+            case 'crash:state': case 'crash:bet': case 'crash:cancel': case 'crash:cashout': case 'crash:balance': case 'crash:res':
+                crash.onMessage(m); break;
             case 'cfg': { const f = friends.get(m.id); if (f) setFriendCfg(f, m.rows, m.risk); break; }
             case 'drop': if (m.player?.id !== state.me?.id) onFriendDrop(m); break;
             default:
@@ -668,7 +699,9 @@ async function boot() {
         // le solde peut bouger ailleurs (work, daily...) : on le resynchronise quand rien ne tombe
         setInterval(() => { if (!recs.size && !state.auto) sync(); }, 15000);
         // mode test uniquement : de quoi declencher les effets a la main
-        if (state.cfg.dev) window.plinkoDebug = { state, recs, board, celebrate, bigWin, friendBigWin, friends };
+        if (state.cfg.dev) window.plinkoDebug = { state, recs, board, celebrate, bigWin, friendBigWin, friends, crash, shop };
+        // mes skins (tables, bille...) des le chargement
+        api('api/shop').then(({ ok, data }) => ok && applySkins(data.equipped));
     } catch (e) {
         gate(e.message || 'Connexion impossible.');
     }
@@ -708,7 +741,7 @@ for (const ev of ['pointerup', 'pointerleave', 'pointercancel', 'blur']) $('drop
 $('drop').addEventListener('click', (e) => { if (e.detail === 0) drop(); }); // clavier (Entree)
 window.addEventListener('blur', stopHold);
 
-document.querySelector('.bet-row').addEventListener('click', (e) => {
+$('bet-row').addEventListener('click', (e) => {
     const b = e.target.closest('[data-bet]');
     if (!b) return;
     const cur = parseBet($('bet').value) || state.cfg.minBet;
@@ -733,11 +766,84 @@ $('bigwin').addEventListener('click', closeBigWin);
 let lastKey = 0;
 document.addEventListener('keydown', (e) => {
     if (e.code !== 'Space' || document.activeElement?.tagName === 'INPUT' || !$('gate').hidden) return;
+    if (state.view === 'shop') return;
     e.preventDefault();
     const now = performance.now();
+    if (state.view === 'crash') {
+        if (e.repeat) return;
+        return crash.press();
+    }
     if (now - lastKey < 120) return; // touche maintenue : ~8 billes/s
     lastKey = now;
     drop();
 });
+
+// ---------------------------------------------------------------------------
+// skins, onglets, Crash, Boutique
+// ---------------------------------------------------------------------------
+function applySkins(equipped) {
+    state.skins = { ...DEFAULTS, ...equipped };
+    const table = lookOf(state.skins, 'board');
+    applyTable($('board-wrap'), table);
+    applyTable($('crash-wrap'), table);
+    board.setTheme(table);
+}
+
+function setBalance(bal) {
+    if (!Number.isFinite(Number(bal))) return;
+    const up = Number(bal) > target();
+    state.server = Number(bal);
+    renderBalance(up ? 600 : 0, up ? 'up' : null);
+}
+
+const crash = new CrashView({
+    send: wsSend,
+    me: () => state.me,
+    mySkins: () => state.skins,
+    onBalance: setBalance,
+    toast,
+    sound,
+    celebrate: (mult, net, bet) => {
+        state.sessionNet += net;
+        renderSession();
+        if (tierOf(mult)) showBigWin(mult, net, bet);
+    },
+    friendWin: (player, mult, net) => banner(player, player.color || '#4fd1ff', `encaisse ×${mult.toFixed(2)} au Crash`, net, Math.max(1, tierOf(mult))),
+    avatarImg,
+    parseBet,
+    maxBet: () => target(),
+    get minBet() { return state.cfg?.minBet || 10; },
+});
+
+const shop = new ShopView({
+    api,
+    toast,
+    sound,
+    me: () => state.me,
+    avatarImg,
+    balance: () => target(),
+    onBalance: setBalance,
+    onEquip: (eq) => applySkins(eq),
+});
+
+function setView(view) {
+    state.view = view;
+    for (const b of $('tabs').children) b.setAttribute('aria-selected', String(b.dataset.view === view));
+    for (const el of document.querySelectorAll('.view')) el.hidden = el.dataset.view !== view;
+    crash.show(view === 'crash');
+    shop.show(view === 'shop');
+    if (view === 'plinko') board.resize();
+    try { localStorage.setItem('casino-view', view); } catch { /* rien */ }
+}
+$('tabs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-view]');
+    if (!b) return;
+    sound.unlock();
+    setView(b.dataset.view);
+});
+try {
+    const v = localStorage.getItem('casino-view');
+    if (v && v !== 'plinko') setView(v);
+} catch { /* rien */ }
 
 boot();

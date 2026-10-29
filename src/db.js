@@ -169,6 +169,13 @@ async function migrate() {
         PRIMARY KEY (id_user, item)
     )`);
 
+    // skins equipes (les skins possedes sont dans inventory, objets "skin:...")
+    await exec(`CREATE TABLE IF NOT EXISTS skin_equip (
+        id_user VARCHAR(32) NOT NULL,
+        slot VARCHAR(16) NOT NULL,
+        skin VARCHAR(48) NOT NULL,
+        PRIMARY KEY (id_user, slot)
+    )`);
     await exec(`CREATE TABLE IF NOT EXISTS weekly (
         week CHAR(10) NOT NULL,
         id_user VARCHAR(32) NOT NULL,

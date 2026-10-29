@@ -13,6 +13,8 @@ const COLORS = {
 const BUCKET_STOPS = ['#f7e7a0', '#ffd25a', '#ffb627', '#ff8a3d', '#ff5a4e', '#d92f45'];
 const CONFETTI = ['#ffd76a', '#ff5a4e', '#4fd1ff', '#8cff6b', '#ff6fb5', '#f7ebd7', '#b98bff'];
 
+import { paintBall, paintTrail, ballColor } from './looks.js';
+
 const lerp = (a, b, t) => a + (b - a) * t;
 const rand = (a, b) => a + Math.random() * (b - a);
 export const reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -58,6 +60,8 @@ export class Board {
         this.shakeAmp = 0;
         this.tenseUntil = 0;
         this.tenseLevel = 0;
+        this.peg = [COLORS.brassHi, COLORS.brass, COLORS.brassLo];
+        this.neon = null;
         this.ro = new ResizeObserver(() => this.resize());
         this.ro.observe(canvas.parentElement);
         this.resize();
@@ -84,8 +88,17 @@ export class Board {
         this.kick();
     }
 
+    /** theme de table (skin) : couleur des picots */
+    setTheme(look) {
+        this.peg = look?.peg || [COLORS.brassHi, COLORS.brass, COLORS.brassLo];
+        this.neon = look?.neon || null;
+        this.renderStatic();
+        this.draw(performance.now());
+    }
+
     resize() {
         const box = this.canvas.parentElement.getBoundingClientRect();
+        if (!box.width || !box.height) return; // vue cachee (autre onglet)
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const min = this.mini ? 60 : 200;
         const W = Math.max(min, Math.round(box.width));
@@ -106,6 +119,7 @@ export class Board {
     }
 
     layout() {
+        if (!this.W) return; // pas encore affiche : on attendra le premier resize
         const { W, H, rows, mini } = this;
         const bucketH = mini ? Math.max(9, Math.min(16, H * 0.11)) : Math.max(26, Math.min(44, H * 0.075));
         const top = H * (mini ? 0.07 : 0.09);
@@ -132,6 +146,7 @@ export class Board {
 
     /** les picots ne bougent pas : dessines une fois sur un calque */
     renderStatic() {
+        if (!this.W || !Number.isFinite(this.top)) return;
         const c = this.static.getContext('2d');
         c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
         c.clearRect(0, 0, this.W, this.H);
@@ -143,10 +158,18 @@ export class Board {
                 c.beginPath();
                 c.arc(x + this.pegR * 0.3, y + this.pegR * 0.45, this.pegR, 0, Math.PI * 2);
                 c.fill();
+                if (this.neon) {
+                    c.fillStyle = this.neon;
+                    c.globalAlpha = 0.25;
+                    c.beginPath();
+                    c.arc(x, y, this.pegR * 2.2, 0, Math.PI * 2);
+                    c.fill();
+                    c.globalAlpha = 1;
+                }
                 const g = c.createRadialGradient(x - this.pegR * 0.35, y - this.pegR * 0.4, this.pegR * 0.1, x, y, this.pegR);
-                g.addColorStop(0, COLORS.brassHi);
-                g.addColorStop(0.55, COLORS.brass);
-                g.addColorStop(1, COLORS.brassLo);
+                g.addColorStop(0, this.peg[0]);
+                g.addColorStop(0.55, this.peg[1]);
+                g.addColorStop(1, this.peg[2]);
                 c.fillStyle = g;
                 c.beginPath();
                 c.arc(x, y, this.pegR, 0, Math.PI * 2);
@@ -415,6 +438,7 @@ export class Board {
     // -----------------------------------------------------------------------
     draw(now) {
         const { ctx, W, H, rows } = this;
+        if (!W || !Number.isFinite(this.top)) return;
         ctx.clearRect(0, 0, W, H);
         ctx.save();
         if (this.shakeAmp > 0.2) ctx.translate(rand(-1, 1) * this.shakeAmp, rand(-1, 1) * this.shakeAmp);
@@ -558,9 +582,27 @@ export class Board {
     drawBall(b, now) {
         const { ctx } = this;
         const r = b.mine ? this.ballR : this.ballR * (b.img ? 1.12 : 0.95);
+        const useImg = b.img && b.img.complete && b.img.naturalWidth && !this.mini;
+        if (b.look) {
+            const spawn = this.mini || this.parts.length > 400 ? null : (x, y, o) => this.burst(x, y, o);
+            paintTrail(ctx, b.trail, r, b.look, b.trailLook || { kind: 'same' }, now, spawn);
+            if (b.slow < 1) {
+                ctx.fillStyle = withAlpha('#fff1c4', 0.25 + 0.2 * Math.sin(now / 50));
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, r * 2.2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            if (!b.pts) {
+                ctx.fillStyle = withAlpha(ballColor(b.look, now), 0.18 + 0.12 * Math.sin(now / 60));
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, r * 1.9, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            if (!useImg) return paintBall(ctx, b.x, b.y, r, b.look, now);
+        }
         // trainee
         const n = b.trail.length;
-        b.trail.forEach(([tx, ty], i) => {
+        if (!b.look) b.trail.forEach(([tx, ty], i) => {
             ctx.fillStyle = withAlpha(b.color, (i / n) * (b.mine ? 0.28 : 0.4));
             ctx.beginPath();
             ctx.arc(tx, ty, r * (0.35 + (i / n) * 0.55), 0, Math.PI * 2);
@@ -585,7 +627,7 @@ export class Board {
             ctx.ellipse(b.x + 2, b.y + r * 0.9, r * 0.8, r * 0.35, 0, 0, Math.PI * 2);
             ctx.fill();
         }
-        if (b.img && b.img.complete && b.img.naturalWidth && !this.mini) {
+        if (useImg) {
             ctx.fillStyle = b.color;
             ctx.beginPath();
             ctx.arc(b.x, b.y, r + 2.2, 0, Math.PI * 2);

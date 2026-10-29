@@ -184,6 +184,14 @@ dans le `.env`, relance, puis ouvre http://localhost:3001/?name=Hicham. **Remets
 - **Page blanche / erreur Cloudflare** : le *Public hostname* doit pointer vers `bot:3001` (pas localhost), et le tunnel doit être lancé avec `--profile tunnel`.
 - **Le bot n'apparaît pas dans la liste des Activités** : vérifie *Enable Activities* et le *Root Mapping*, puis redémarre Discord.
 
+### 🚀 Crash à plusieurs et 🛍️ Boutique de skins
+
+L'Activity a trois onglets : **Plinko**, **Crash** et **Boutique**.
+
+- **Crash** : une seule fusée pour tout le vocal. 8 s de compte à rebours pour miser (avec encaissement auto en option), puis chacun encaisse quand il veut (bouton ou Espace). Les encaissements des potes s'affichent sur la courbe. Même maths que `=crash` (~3 % de crash instantané). Une mise peut être annulée tant que la fusée n'a pas décollé.
+- **Boutique** : skins purement cosmétiques (billes, traînées, tables, cadres d'avatar), du commun (2 500) au légendaire (150 000). L'argent des achats part à la banque du slip. Certains skins ne s'achètent pas : ils tombent des coffres (`=ouvrir`, 3 à 8 % de chances selon le coffre). Les skins équipés sont visibles par tout le vocal.
+- `=coffres` liste aussi les skins possédés.
+
 ### Images de l'Activity (carte dans la liste des Activités)
 
 Developer Portal → ton app → **Activities → Art Assets**, avec les fichiers du dossier `assets/discord/` :
