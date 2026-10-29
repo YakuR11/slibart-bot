@@ -13,16 +13,30 @@
             <ul class="players" id="players" aria-label="Joueurs dans le vocal"></ul>
             <div class="wallet">
                 <span class="level" id="level" title="Ton niveau">niv. –</span>
+                <span class="session" id="session" title="Gains depuis l'ouverture" hidden></span>
                 <span class="balance" id="balance" aria-live="polite">–</span>
                 <button class="icon-btn" id="mute" type="button" aria-label="Couper le son" title="Son">🔊</button>
             </div>
         </header>
 
         <main class="playfield">
-            <section class="board-wrap" aria-label="Plateau">
-                <canvas id="board"></canvas>
-                <div class="pops" id="pops" aria-hidden="true"></div>
-            </section>
+            <div class="stage">
+                <ul class="tribune" id="tribune" aria-label="Tes potes en direct" hidden></ul>
+                <section class="board-wrap" id="board-wrap" aria-label="Plateau">
+                    <canvas id="board"></canvas>
+                    <div class="pops" id="pops" aria-hidden="true"></div>
+                    <div class="streak" id="streak" hidden></div>
+                    <div class="banners" id="banners" aria-live="polite"></div>
+                    <div class="bigwin" id="bigwin" hidden>
+                        <div class="rays" aria-hidden="true"></div>
+                        <div class="bw-box">
+                            <div class="bw-title" id="bw-title">GROS GAIN</div>
+                            <div class="bw-amount" id="bw-amount">0</div>
+                            <div class="bw-mult" id="bw-mult">×10</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
 
             <aside class="console">
                 <div class="field">
@@ -54,6 +68,7 @@
                 </div>
 
                 <button type="button" class="drop" id="drop">Lâcher la bille</button>
+                <p class="hint">Maintiens le bouton (ou Espace) pour enchaîner.</p>
 
                 <div class="auto">
                     <span class="field-label">En rafale</span>

@@ -98,10 +98,34 @@ function broadcast(room, msg, except = null) {
     for (const ws of set) if (ws !== except && ws.readyState === 1) ws.send(data);
 }
 
+// une couleur par joueur dans la salle (distinctes, jamais l'or : l'or c'est "ma" bille)
+const PALETTE = ['#4fd1ff', '#ff6fb5', '#8cff6b', '#b98bff', '#ff8a3d', '#3dffd0', '#ff4f6a', '#f2f26b'];
+
 function players(room) {
     const seen = new Map();
-    for (const ws of rooms.get(room) || []) if (ws.player) seen.set(ws.player.id, { id: ws.player.id, name: ws.player.name, avatar: ws.player.avatar });
+    for (const ws of rooms.get(room) || []) {
+        if (ws.player && !seen.has(ws.player.id)) seen.set(ws.player.id, { ...ws.player });
+    }
     return [...seen.values()];
+}
+
+function colorFor(room, id) {
+    const used = new Set();
+    for (const ws of rooms.get(room) || []) {
+        if (ws.player?.id === id) return ws.player.color;
+        if (ws.player) used.add(ws.player.color);
+    }
+    return PALETTE.find((c) => !used.has(c)) || PALETTE[Math.floor(Math.random() * PALETTE.length)];
+}
+
+function broadcastDrop(room, s, b, except = null) {
+    let color = null;
+    for (const ws of rooms.get(room) || []) if (ws.player?.id === s.id) color = ws.player.color;
+    broadcast(room, {
+        type: 'drop',
+        player: { id: s.id, name: s.name, avatar: s.avatar, color },
+        rows: b.rows, risk: b.risk, path: b.path, mult: b.mult, bet: b.bet, net: b.payout - b.bet,
+    }, except);
 }
 
 // ---------------------------------------------------------------------------
@@ -153,15 +177,11 @@ async function api(req, res, route) {
 
     if (route === '/api/plinko/drop' && req.method === 'POST') {
         const body = await readJson(req);
-        const out = await plinko.drop({ id: s.id, name: s.name, user: s.user }, body);
+        const room = body.room ? String(body.room) : null;
+        const out = await plinko.drop({ id: s.id, name: s.name, user: s.user }, body, {
+            onBall: (b) => room && broadcastDrop(room, s, b),
+        });
         if (out.error) return send(res, out.soft ? 429 : 400, out);
-        if (body.room) {
-            broadcast(String(body.room), {
-                type: 'drop',
-                player: { id: s.id, name: s.name, avatar: s.avatar },
-                rows: Number(body.rows), risk: body.risk, path: out.path, mult: out.mult, bet: out.bet, net: out.net,
-            });
-        }
         return send(res, 200, out);
     }
 
@@ -226,10 +246,42 @@ function start(discordClient) {
         const s = sessions.get(url.searchParams.get('session') || '');
         const room = String(url.searchParams.get('room') || 'lobby').slice(0, 64);
         if (!s) return ws.close(4001, 'session');
-        ws.player = { id: s.id, name: s.name, avatar: s.avatar };
+        ws.player = { id: s.id, name: s.name, avatar: s.avatar, color: colorFor(room, s.id), rows: 12, risk: 'medium' };
         if (!rooms.has(room)) rooms.set(room, new Set());
         rooms.get(room).add(ws);
+        const reply = (m) => ws.readyState === 1 && ws.send(JSON.stringify(m));
+        reply({ type: 'hello', color: ws.player.color });
         broadcast(room, { type: 'players', players: players(room) });
+
+        ws.on('message', (raw) => {
+            let m;
+            try { m = JSON.parse(String(raw)); } catch { return; }
+            if (!m || typeof m !== 'object') return;
+            if (s.exp < Date.now()) return reply({ type: 'err', id: m.id, error: 'Session expirée, relance l\'activité.', fatal: true });
+
+            // reglages visibles par les autres (pour leur tribune)
+            if (m.type === 'cfg') {
+                const c = plinko.check({ bet: plinko.MIN_BET, risk: m.risk, rows: m.rows });
+                if (c.error) return;
+                ws.player.rows = c.rows;
+                ws.player.risk = c.risk;
+                return broadcast(room, { type: 'cfg', id: s.id, rows: c.rows, risk: c.risk }, ws);
+            }
+
+            if (m.type === 'drop') {
+                const id = m.id;
+                plinko.drop({ id: s.id, name: s.name, user: s.user }, m, {
+                    onBall: (b) => {
+                        reply({ type: 'ball', id, path: b.path, bucket: b.bucket, mult: b.mult, payout: b.payout });
+                        broadcastDrop(room, s, b, ws);
+                    },
+                    onNotices: (list) => reply({ type: 'notices', list }),
+                }).then((out) => {
+                    if (out.error) return reply({ type: 'err', id, error: out.error, soft: !!out.soft });
+                    reply({ type: 'settled', id, received: out.received, net: out.net, balance: out.balance, cut: out.cut });
+                });
+            }
+        });
         ws.on('close', () => {
             rooms.get(room)?.delete(ws);
             if (!rooms.get(room)?.size) rooms.delete(room);
