@@ -651,6 +651,7 @@ async function boot() {
     gate('Connexion à Discord…');
     try {
         state.cfg = (await api('api/config')).data;
+        $('ver').textContent = `version ${state.cfg.version || '?'}`;
         const data = await login();
         state.session = data.session;
         state.me = data.me;
