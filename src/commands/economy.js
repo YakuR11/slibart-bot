@@ -200,6 +200,9 @@ module.exports = [
             const amount = eco.parseAmount(montant, bal);
             if (!amount) return ctx.fail('Montant invalide.');
             if (amount > bal) return ctx.fail(`Tu n'as que **${fmt(bal)}** ${RB()}.`);
+            // pas de don avec une dette : sinon on emprunte et on vide tout sur le compte d'un pote
+            const me = await db.getProfile(ctx.user.id);
+            if (me.debt > 0) return ctx.fail(`Tu as une dette de **${fmt(me.debt)}** ${RB()}. Rembourse d'abord (\`${config.prefix}rembourser\`).`);
             const pay = await eco.transfer(ctx.user.id, membre.id, amount);
             if (!pay) return ctx.fail('Fonds insuffisants.');
             await ctx.reply(`💸 **${ctx.displayName}** a donné **${fmt(amount)}** ${RB()} à ${membre} !${credit.note(pay.cut, pay.debt)}`);
@@ -316,7 +319,7 @@ module.exports = [
         description: 'Emprunte des RB. Le work est prélevé à la source jusqu\'au remboursement',
         usage: '[montant]',
         example: 'credit 100000',
-        options: [{ name: 'montant', type: 'string', description: 'Somme à emprunter (100 à 100000k)' }],
+        options: [{ name: 'montant', type: 'string', description: 'Somme à emprunter (plafond selon ton niveau)' }],
         async run(ctx, { montant }) {
             const p = await db.getProfile(ctx.user.id);
             if (!montant) {
@@ -328,7 +331,7 @@ module.exports = [
                         .setDescription(
                             p.debt > 0
                                 ? `Dette : **${fmt(p.debt)}** ${RB()}\n**${r} %** de tout ce qui entre est pris à la source : work, daily, casino, quêtes, dons, récompenses.\nÀ partir de **100k** de dette, c'est **50 %**. Tu rembourses tout.\n\n\`${config.prefix}rembourser <montant|all>\` pour payer plus vite.`
-                                : `Aucune dette.\n\`${config.prefix}credit 5000\` pour emprunter.\nEnsuite la banque prend une part de **tout** ce qui arrive sur le compte : **10 %** sur une petite dette, **50 %** à partir de **100k**.\nPlafond : **${fmt(credit.MAX_DEBT)}** ${RB()}.`,
+                                : `Aucune dette.\n\`${config.prefix}credit 5000\` pour emprunter (**${Math.round(credit.FEE * 100)} %** de frais).\nEnsuite la banque prend une part de **tout** ce qui arrive sur le compte : **10 %** sur une petite dette, **50 %** à partir de **100k**.\nPlafond à ton niveau : **${fmt(credit.maxDebt(p.level))}** ${RB()} (monte avec ton niveau).\nPas de \`give\` tant que tu as une dette.`,
                         )],
                 });
             }
@@ -338,11 +341,11 @@ module.exports = [
             if (amount < credit.MIN_LOAN) return ctx.fail(`Minimum **${fmt(credit.MIN_LOAN)}** ${RB()}.`);
             const res = await credit.borrow(ctx.user.id, amount);
             if (res.error === 'cap') {
-                return ctx.fail(`Plafond **${fmt(credit.MAX_DEBT)}** ${RB()}. Dette actuelle : **${fmt(res.debt)}**.`);
+                return ctx.fail(`Plafond à ton niveau : **${fmt(res.cap)}** ${RB()} de dette (dette actuelle **${fmt(res.debt)}**). Tu peux encore emprunter **${fmt(res.room)}**.`);
             }
             const now = await eco.balance(ctx.user.id);
             return ctx.reply(
-                `🏦 **${ctx.displayName}** emprunte **${fmt(amount)}** ${RB()}. Solde : **${fmt(now)}**.\n` +
+                `🏦 **${ctx.displayName}** emprunte **${fmt(amount)}** ${RB()} (tu dois **${fmt(res.owed)}** avec les frais). Solde : **${fmt(now)}**.\n` +
                 `Dette : **${fmt(res.debt)}** · **${credit.pct(res.debt)} %** de chaque entrée (work, daily, casino, récompenses, dons) part à la banque jusqu'au remboursement total.`,
             );
         },

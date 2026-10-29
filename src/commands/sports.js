@@ -326,6 +326,22 @@ module.exports = [
             });
         },
     },
+    {
+        name: 'elo',
+        aliases: ['powerranking', 'pr'],
+        category: 'sport',
+        description: 'Classement Elo des equipes LoL (c\'est lui qui fait les cotes esport)',
+        async run(ctx) {
+            const top = await sports.lolRanking(20);
+            if (!top.length) return ctx.reply('Le classement se construit au démarrage du bot, réessaie dans quelques minutes.');
+            const embed = new EmbedBuilder()
+                .setColor('#c8aa6e')
+                .setTitle('🎮 Power ranking LoL')
+                .setDescription(top.map((t, i) => `\`${String(i + 1).padStart(2)}\` **${t.team}**${t.code ? ` (${t.code})` : ''} · ${Math.round(t.rating)} · ${t.games} matchs`).join('\n'))
+                .setFooter({ text: 'Mis à jour après chaque match pro (LCK, LPL, LEC, LTA, Worlds, MSI...)' });
+            return ctx.reply({ embeds: [embed] });
+        },
+    },
 ];
 
 module.exports.handleComponent = handleComponent;

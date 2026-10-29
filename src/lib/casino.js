@@ -70,6 +70,8 @@ async function settle(ctx, bet, payout) {
             await eco.toCasino(bet, conn);
         } else {
             await eco.bump(userId, { gamblecount: 1, pertecount: Math.max(0, -pocket) }, conn);
+            // remboursement partiel (paire aux slots...) : la part perdue va a la banque du slip
+            if (bet > payout) await eco.toCasino(bet - payout, conn);
         }
     });
     const net = received - bet;
