@@ -53,9 +53,11 @@ button { cursor: pointer; }
 
 /* ---------- meuble ---------- */
 .cabinet {
+    height: 100vh;
     height: 100dvh;
     display: grid;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
     padding: max(10px, env(safe-area-inset-top)) 12px 12px;
     gap: 10px;
     background:
@@ -165,20 +167,22 @@ button { cursor: pointer; }
 /* ---------- plateau + console ---------- */
 .playfield {
     display: grid;
-    grid-template-columns: 1fr 290px;
+    grid-template-columns: minmax(0, 1fr) 290px;
+    grid-template-rows: minmax(0, 1fr);
     gap: 12px;
     min-height: 0;
 }
 
 .stage {
     display: grid;
-    grid-template-rows: auto 1fr;
-    gap: 10px;
+    grid-template-rows: auto minmax(0, 1fr);
     min-height: 0;
     min-width: 0;
 }
 
+.tribune { grid-row: 1; margin-bottom: 10px; }
 .board-wrap {
+    grid-row: 2; /* toujours la ligne qui prend la place, meme sans pote dans la tribune */
     position: relative;
     min-height: 0;
     border-radius: var(--radius-lg);
@@ -194,7 +198,8 @@ button { cursor: pointer; }
         0 10px 30px rgba(0, 0, 0, 0.5);
     overflow: hidden;
 }
-#board { display: block; width: 100%; height: 100%; }
+/* le canvas ne doit JAMAIS donner sa taille au conteneur (sinon le plateau grandit en boucle) */
+#board { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 
 .pops { position: absolute; inset: 0; pointer-events: none; }
 .pop {
@@ -403,7 +408,7 @@ button { cursor: pointer; }
 .pal .who .pos { color: var(--win); }
 .pal .who .neg { color: var(--loss); }
 .pal .mini { grid-column: 1 / -1; position: relative; border-radius: 8px; overflow: hidden; background: rgba(0, 0, 0, 0.15); }
-.pal .mini canvas { display: block; width: 100%; height: 100%; }
+.pal .mini canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 .pal .last {
     position: absolute;
     right: 4px;
@@ -434,7 +439,7 @@ button { cursor: pointer; }
     pointer-events: none;
 }
 .streak[hidden] { display: none; }
-.streak.bump { animation: streak-bump 380ms ease-out; }
+.streak.bump { animation: streak-bump 380ms ease-out; transform-origin: left center; }
 .streak.fire { background: linear-gradient(180deg, #ffb36b, var(--coral)); box-shadow: 0 0 22px rgba(255, 90, 78, 0.7); }
 @keyframes streak-bump { from { transform: scale(1.45) rotate(-4deg); } }
 
@@ -586,7 +591,8 @@ button { cursor: pointer; }
 /* ---------- petits ecrans (Discord mobile, fenetre etroite) ---------- */
 @media (max-width: 760px) {
     html, body { overflow-x: hidden; overflow-y: auto; height: auto; }
-    .cabinet { height: auto; min-height: 100dvh; }
+    .cabinet { height: auto; min-height: 100dvh; overflow: visible; grid-template-rows: auto auto; }
+    .playfield { grid-template-rows: auto; }
     .playfield { grid-template-columns: 1fr; }
     .board-wrap { height: auto; aspect-ratio: 1 / 0.92; max-height: 70vh; }
     .marquee { gap: 10px; }
