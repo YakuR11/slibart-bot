@@ -183,3 +183,12 @@ dans le `.env`, relance, puis ouvre http://localhost:3001/?name=Hicham. **Remets
 - **Écran « Connexion à Discord… » bloqué** : `DISCORD_CLIENT_SECRET` faux ou absent, ou pas de redirect dans OAuth2.
 - **Page blanche / erreur Cloudflare** : le *Public hostname* doit pointer vers `bot:3001` (pas localhost), et le tunnel doit être lancé avec `--profile tunnel`.
 - **Le bot n'apparaît pas dans la liste des Activités** : vérifie *Enable Activities* et le *Root Mapping*, puis redémarre Discord.
+
+### Images de l'Activity (carte dans la liste des Activités)
+
+Developer Portal → ton app → **Activities → Art Assets**, avec les fichiers du dossier `assets/discord/` :
+- **Cover Art** : `cover-16x9.png` et `cover-13x11.png`
+- **Video Preview** : `preview-640x360.mp4` (se lance au survol de la carte)
+- **Embedded Background** : `background-16x9.png`
+
+Et dans **General Information** : une description courte, par exemple « Lâche des billes, vise les bords. Tout le vocal joue sur le même plateau, jusqu'à ×1000. »
