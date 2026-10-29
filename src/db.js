@@ -216,6 +216,20 @@ async function migrate() {
         KEY idx_open (status, match_id)
     )`);
 
+    // Elo des equipes LoL (base des cotes esport)
+    await exec(`CREATE TABLE IF NOT EXISTS lol_elo (
+        team VARCHAR(100) NOT NULL PRIMARY KEY,
+        code VARCHAR(16) NULL,
+        rating DOUBLE NOT NULL,
+        games INT NOT NULL DEFAULT 0
+    ) CHARACTER SET utf8mb4`);
+    await exec(`CREATE TABLE IF NOT EXISTS lol_elo_seen (
+        match_id VARCHAR(40) NOT NULL PRIMARY KEY,
+        at BIGINT NOT NULL
+    )`);
+    cols = await columns('sport_matches');
+    if (!cols.bo) await exec('ALTER TABLE sport_matches ADD COLUMN bo INT NOT NULL DEFAULT 1');
+
     // compte "banque du slip" (le casino) : recoit les pertes
     await ensureProfile(config.casinoId);
     log.info('[db] schema a jour');

@@ -5,8 +5,12 @@ const db = require('../db');
 const eco = require('./economy');
 const { fmt } = require('./utils');
 
-const MAX_DEBT = 100_000_000; // 100 000k
+// Plafond selon le niveau : sinon on emprunte 100M au niveau 0, on donne tout a un pote
+// et la dette reste coincee sur un compte jetable = argent infini.
+const MAX_DEBT = 250_000; // plafond absolu
 const MIN_LOAN = 100;
+const FEE = 0.10; // 10 % de frais : emprunter 1000 = devoir 1100
+const maxDebt = (level) => Math.min(MAX_DEBT, 5_000 + 3_000 * (Number(level) || 0));
 const FULL_RATE_AT = 100_000; // a partir de 100k, le work est preleve a 50 %
 
 /** 10 % pour une petite dette, 50 % des 100k. */
@@ -42,17 +46,19 @@ async function withhold(userId, gross, conn = db.pool) {
     return { net: gross - cut, cut, debt: debt - cut, rate: r };
 }
 
-/** Emprunte. Le montant arrive sur le compte, la dette augmente d'autant. */
+/** Emprunte. Le montant arrive sur le compte, la dette augmente du montant + 10 %. */
 async function borrow(userId, amount) {
     return db.tx(async (conn) => {
         await db.ensureProfile(userId, conn);
-        const [rows] = await conn.query('SELECT debt FROM profile WHERE id_user = ? FOR UPDATE', [String(userId)]);
+        const [rows] = await conn.query('SELECT debt, level FROM profile WHERE id_user = ? FOR UPDATE', [String(userId)]);
         const debt = Number(rows[0]?.debt || 0);
-        if (debt + amount > MAX_DEBT) return { error: 'cap', debt };
+        const cap = maxDebt(rows[0]?.level);
+        const owed = Math.ceil(amount * (1 + FEE));
+        if (debt + owed > cap) return { error: 'cap', debt, cap, room: Math.max(0, Math.floor((cap - debt) / (1 + FEE))) };
         await eco.addRb(userId, amount, conn, { raw: true });
-        await db.exec('UPDATE profile SET debt = debt + ? WHERE id_user = ?', [amount, String(userId)], conn);
-        const next = debt + amount;
-        return { debt: next, rate: rate(next) };
+        await db.exec('UPDATE profile SET debt = debt + ? WHERE id_user = ?', [owed, String(userId)], conn);
+        const next = debt + owed;
+        return { debt: next, rate: rate(next), owed, cap };
     });
 }
 
@@ -74,4 +80,4 @@ async function repay(userId, amount) {
     });
 }
 
-module.exports = { MAX_DEBT, MIN_LOAN, rate, pct, note, withhold, borrow, repay };
+module.exports = { MAX_DEBT, MIN_LOAN, FEE, maxDebt, rate, pct, note, withhold, borrow, repay };

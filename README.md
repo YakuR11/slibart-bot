@@ -69,7 +69,7 @@ Tout est dans `config/content.json` : images de `=cold`/`=remember`/`=bubble`, p
 | Profil | `profile [@user]` (`p`) · `set <img\|acc\|bio> <valeur>` · `setimg` `setbio` `setacc` · `wacount` |
 | Capitalism | `bank` (`b`) · `work` (`w`) · `gw` · `daily` · `rsa` · `rob <@user>` · `give <@user> <montant>` · `shop` · `buy <slave\|cave\|cadenas>` · `mine` (`m`) |
 | Casino | `gamble <r\|b\|g> <mise>` (`g`) · `slots <mise>` · `blackjack <mise>` (`bj`) · `mines <mise> [bombes]` · `crash <mise> [auto]` · `loto [tickets]` · `duel <@user> <mise>` |
-| Paris | `matchs [foot\|lol]` · `parier <n°> <1\|N\|2> <mise>` · `mesparis` |
+| Paris | `matchs [foot\|lol]` · `parier <n°> <1\|N\|2> <mise>` · `mesparis` · `elo` |
 | Progression | `cd` · `coffres` · `ouvrir` · `quetes` (`q`) · `succes` · `niveau` (`lvl`) · `rappels` |
 | Classements | `semaine` (saison) · `top <capital\|niveau\|succes\|winstreak\|insult\|rolls\|mine\|pertes\|gains\|streak\|esclaves\|champions>` · `topc` `topi` `topl`... · `slipbank` |
 | Champions | `rc` · `info <champion>` · `mmr [@user]` (`cave`) · `release <champion>` · `giftchamp <@user> <champion>` |
@@ -109,8 +109,8 @@ Les mises acceptent `all`, `half`, `1k`, `2.5k`, `1m`. Chaque résultat de casin
 `SPORTS_API_KEY` dans le `.env` (clé API-Football). Le bot ne l'écrase pas au dézippage : ajoute la ligne si elle n'y est pas encore.
 
 - **Foot** : Ligue 1, Premier League, Liga, Serie A, Bundesliga, Ligue des champions, Europa League. Avec la clé gratuite, l'API ne donne qu'hier, aujourd'hui et demain : le lendemain, la fenêtre avance. Cotes bookmaker, marge 5 %, figées sur le ticket. Mises fermées au coup d'envoi.
-- **LoL** : Worlds, LEC, MSI, EWC quand Riot le publie. La cote part du bilan du tournoi et bouge avec le score des maps. Pas de cote bookmaker.
-- `=matchs`, `=matchs lol`, `=parier 12 1 500`, `=mesparis`. Une mise par match, plafond 100 000 RB. Match annulé : remboursement. Les gains comptent dans la saison.
+- **LoL** : Worlds, MSI, First Stand, LEC, EWC quand Riot le publie. Pas de cote bookmaker en esport : le bot tient un **classement Elo** de toutes les équipes (LCK, LPL, LEC, LTA, Worlds...) construit sur l'historique et mis à jour après chaque match pro. La cote vient de l'écart d'Elo et du format (Bo1/Bo3/Bo5). `=elo` affiche le classement. Les paris ferment au début du match (pas de pari en direct : les cotes ne suivent pas la partie en cours).
+- `=matchs`, `=matchs lol`, `=parier 12 1 500`, `=mesparis`. Une mise par match, plafond 100 000 RB. Quota API-Football (100 req/jour) géré tout seul : le bot garde toujours de quoi régler les paris. Match annulé : remboursement. Les gains comptent dans la saison.
 
 ## Mettre à jour le bot
 
@@ -135,3 +135,7 @@ data/champion.json  liste de secours si Data Dragon est injoignable
 ```
 
 Ajouter une commande = ajouter un objet dans un fichier de `src/commands/`, elle marche direct en `=` et en `/` et apparaît dans `=help`.
+
+## Crédit
+
+`=credit <montant>` : emprunt avec **10 % de frais**. Plafond de dette selon le niveau : **5 000 + 3 000 par niveau** (max 250 000). Tant qu'il reste une dette, une part de tout ce qui rentre part à la banque (10 % à 50 %) et `=give` est bloqué (sinon on pourrait emprunter et tout donner à un pote). `=rembourser <montant|all>` pour solder plus vite.
