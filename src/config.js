@@ -9,6 +9,15 @@ const env = (key, fallback = undefined) => {
 
 const list = (key) => (env(key, '') || '').split(',').map((s) => s.trim()).filter(Boolean);
 
+/** l'ID de l'application est la 1re partie du token, encodee en base64 */
+function idFromToken(t) {
+    try {
+        return Buffer.from(String(t).split('.')[0], 'base64').toString('utf8').replace(/\D/g, '') || null;
+    } catch {
+        return null;
+    }
+}
+
 const content = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'content.json'), 'utf8'));
 
 module.exports = {
@@ -40,6 +49,15 @@ module.exports = {
     },
 
     sportsApiKey: env('SPORTS_API_KEY'),
+
+    // Activity Discord (Plinko avec une vraie interface)
+    activity: {
+        enabled: env('ACTIVITY_ENABLED', 'true') !== 'false',
+        port: Number(env('ACTIVITY_PORT', 3001)),
+        clientId: env('DISCORD_CLIENT_ID', idFromToken(env('DISCORD_TOKEN', env('TOKEN')))),
+        clientSecret: env('DISCORD_CLIENT_SECRET'),
+        dev: env('ACTIVITY_DEV', 'false') === 'true', // mode test hors Discord, jamais en prod
+    },
 
     content,
 };

@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { SlashCommandBuilder, InteractionContextType } = require('discord.js');
+const { SlashCommandBuilder, InteractionContextType, ApplicationCommandType } = require('discord.js');
 const config = require('../config');
 const log = require('./logger');
 const { Ctx } = require('./context');
@@ -234,6 +234,11 @@ async function registerSlash(client) {
             await guild.commands.set(body);
             log.info(`[slash] ${body.length} commandes enregistrees sur le serveur ${guild.name}`);
         } else {
+            // avec les Activities, Discord cree une commande "Lancer" (Entry Point) : on la garde,
+            // sinon le remplacement global des commandes est refuse
+            const existing = await client.application.commands.fetch().catch(() => null);
+            const entry = existing?.find((c) => c.type === ApplicationCommandType.PrimaryEntryPoint);
+            if (entry) body.push({ name: entry.name, description: entry.description, type: entry.type, handler: entry.handler ?? 2, contexts: entry.contexts, integration_types: entry.integrationTypes });
             await client.application.commands.set(body);
             log.info(`[slash] ${body.length} commandes enregistrees globalement (peut prendre quelques minutes)`);
         }
