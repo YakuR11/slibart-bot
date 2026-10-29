@@ -13,7 +13,7 @@ const progress = require('../lib/progress');
 const plinko = require('./plinko');
 
 const ROOT = path.join(__dirname, '..', '..', 'activity');
-const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2' };
 const SESSION_TTL = 12 * 3600 * 1000;
 
 const sessions = new Map(); // token -> { id, name, avatar, user, exp }
@@ -133,7 +133,7 @@ function broadcastDrop(room, s, b, except = null) {
 // ---------------------------------------------------------------------------
 async function api(req, res, route) {
     if (route === '/api/config' && req.method === 'GET') {
-        return send(res, 200, { clientId: config.activity.clientId, dev: config.activity.dev, rb: 'RB', tables: plinko.TABLES, minBet: plinko.MIN_BET, maxBet: plinko.MAX_BET });
+        return send(res, 200, { version: uiVersion(), clientId: config.activity.clientId, dev: config.activity.dev, rb: 'RB', tables: plinko.TABLES, minBet: plinko.MIN_BET, maxBet: plinko.MAX_BET });
     }
 
     // echange du code OAuth Discord contre un token, puis session de jeu
@@ -198,14 +198,45 @@ async function api(req, res, route) {
     return send(res, 404, { error: 'introuvable' });
 }
 
-function serveStatic(req, res, route) {
+/**
+ * Version de l'interface = empreinte de app.js + style.css.
+ * index.html est servi avec ?v=<version> sur ses fichiers : a chaque mise a jour l'adresse change,
+ * donc ni Discord, ni Cloudflare, ni le navigateur ne peuvent resservir l'ancien code.
+ */
+let versionCache = { key: '', v: 'dev' };
+function uiVersion() {
+    try {
+        const files = [path.join(ROOT, 'dist', 'app.js'), path.join(ROOT, 'style.css')];
+        const key = files.map((f) => fs.statSync(f).mtimeMs).join(':');
+        if (key !== versionCache.key) {
+            const h = crypto.createHash('sha1');
+            for (const f of files) h.update(fs.readFileSync(f));
+            versionCache = { key, v: h.digest('hex').slice(0, 8) };
+        }
+    } catch { /* build absent */ }
+    return versionCache.v;
+}
+
+function serveStatic(req, res, route, query) {
     const file = route === '/' ? 'index.html' : route.slice(1);
     const full = path.normalize(path.join(ROOT, file));
     if (!full.startsWith(ROOT) || !fs.existsSync(full) || fs.statSync(full).isDirectory()) return send(res, 404, 'introuvable', 'text/plain');
+    const nosniff = { 'X-Content-Type-Options': 'nosniff' };
+    if (file === 'index.html') {
+        const v = uiVersion();
+        const html = fs.readFileSync(full, 'utf8')
+            .replace('href="style.css"', `href="style.css?v=${v}"`)
+            .replace('src="dist/app.js"', `src="dist/app.js?v=${v}"`);
+        res.writeHead(200, { 'Content-Type': TYPES['.html'], 'Cache-Control': 'no-store, max-age=0', ...nosniff });
+        return res.end(html);
+    }
+    // fichier versionne : gardable pour toujours (l'adresse change a chaque version)
+    // sinon : on revalide a chaque fois
+    const versioned = query.has('v') || file.startsWith('dist/fonts/');
     res.writeHead(200, {
         'Content-Type': TYPES[path.extname(full)] || 'application/octet-stream',
-        'Cache-Control': file === 'index.html' ? 'no-cache' : 'public, max-age=300',
-        'X-Content-Type-Options': 'nosniff',
+        'Cache-Control': versioned ? 'public, max-age=31536000, immutable' : 'no-cache',
+        ...nosniff,
     });
     fs.createReadStream(full).pipe(res);
 }
@@ -229,7 +260,7 @@ function start(discordClient) {
         try {
             if (route.startsWith('/api/')) return await api(req, res, route);
             if (route.startsWith('/avatar/')) return await serveAvatar(res, route);
-            return serveStatic(req, res, route);
+            return serveStatic(req, res, route, url.searchParams);
         } catch (e) {
             log.error('[activity]', e);
             return send(res, 500, { error: 'erreur serveur' });
