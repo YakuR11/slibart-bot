@@ -112,8 +112,9 @@ export class MapView {
     }
 
     fit(now = false) {
-        const z = Math.max(this.W / 1000, this.H / 700) * 0.98; // remplit le cadre, pas de bandes vides
-        this.flyTo(500, 350, Math.min(z, Math.max(this.minZ || z, z)), now);
+        // remplit le cadre en gardant la place des pp de la premiere rangee (le monde va de -70 a 700 en hauteur)
+        const z = Math.max(this.W / 1040, this.H / 770) * 0.98;
+        this.flyTo(500, 315, Math.min(z, Math.max(this.minZ || z, z)), now);
         this.focus = null;
         this.renderList();
     }
@@ -181,9 +182,15 @@ export class MapView {
         }, { passive: false });
     }
 
+    /** rayon de la pp (monde) : au moins 24 px a l'ecran quand on dezoome, sans deborder sur les voisins */
+    ppR(h) {
+        return Math.min(30, Math.max(15 * this.scaleOf(h), 24 / this.cam.z));
+    }
+
     houseBox(h) {
-        const s = this.scaleOf(h) * this.cam.z;
-        return { x: this.sx(h.x), y: this.sy(h.y), w: 52 * s, top: 60 * s + 38 * s, bottom: 24 * s };
+        const s = this.scaleOf(h);
+        const z = this.cam.z;
+        return { x: this.sx(h.x), y: this.sy(h.y), w: 64 * s * z, top: (70 * s + this.ppR(h) * 2 + 8) * z, bottom: 24 * s * z };
     }
 
     hit(e) {
@@ -595,12 +602,12 @@ export class MapView {
 
         // pp + nom au-dessus du toit ; podium : or, argent, bronze
         const roofTop = y - hh - [14, 24, 8, 22][tier] * s;
-        const r = 15 * s;
+        const r = this.ppR(h);
         const ay = roofTop - r - 6;
         const RING = { 1: '#ffd24a', 2: '#d9dee6', 3: '#d08a4f' };
         ctx.fillStyle = RING[rank] || (me ? '#ffd76a' : '#f7ebd7');
         ctx.beginPath();
-        ctx.arc(x, ay, r + (RING[rank] ? 3.5 : 2.5), 0, Math.PI * 2);
+        ctx.arc(x, ay, r + (RING[rank] ? 3.5 : 2.5) * (r / 15) ** 0.5, 0, Math.PI * 2);
         ctx.fill();
         const img = this.imgs.get(h.avatar);
         ctx.save();
@@ -613,15 +620,15 @@ export class MapView {
         ctx.restore();
         const deco = decoImage(h.skins);
         if (deco?.complete) ctx.drawImage(deco, x - r / 0.36, ay - r / 0.36, (r / 0.36) * 2, (r / 0.36) * 2);
-        if (rank === 1) this.crown(x + r * 0.7, ay - r * 0.85, s);
+        if (rank === 1) this.crown(x + r * 0.7, ay - r * 0.85, r / 15);
         else if (RING[rank]) {
             // pastille de rang
             ctx.fillStyle = RING[rank];
             ctx.beginPath();
-            ctx.arc(x + r * 0.78, ay + r * 0.72, 6.5, 0, Math.PI * 2);
+            ctx.arc(x + r * 0.78, ay + r * 0.72, r * 0.38, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = '#2a1408';
-            ctx.font = '600 9px Bricolage, system-ui, sans-serif';
+            ctx.font = `600 ${r * 0.5}px Bricolage, system-ui, sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(String(rank), x + r * 0.78, ay + r * 0.72 + 0.5);
