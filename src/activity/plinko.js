@@ -155,7 +155,7 @@ function round(player, { bet, net, allin, before }, hooks) {
         rounds.set(player.id, r);
         r.timer = setTimeout(() => closeRound(player.id), ROUND_MS);
         // centre des paris : une rafale = un pari
-        r.feedId = feed.start({ player, game: 'plinko', bet, allin, balBefore: before });
+        r.feedId = feed.start({ player, game: 'plinko', bet, allin, balBefore: before, where: player.where || null });
     }
     r.hooks = hooks;
     r.balls++;
@@ -192,7 +192,7 @@ function closeRound(id) {
 function announceWin(player, net, mult, bet) {
     const embed = new EmbedBuilder()
         .setColor('#f1c40f')
-        .setDescription(`🚨 **${player.name}** vient de gagner **${fmt(net)}** ${config.rbEmoji} au **Plinko** (x${mult}, mise ${fmt(bet)}) !\n-# 🚀 Lance l'activité depuis un vocal pour jouer`);
+        .setDescription(`🚨 **${player.name}** vient de gagner **${fmt(net)}** ${config.rbEmoji} au **Plinko** (x${mult}, mise ${fmt(bet)}) !\n-# ${config.prefix}pk dans le chat, ou l'activité dans un vocal sur PC`);
     if (player.user?.displayAvatarURL) embed.setAuthor({ name: player.name, iconURL: player.user.displayAvatarURL({ extension: 'png', size: 64 }) });
     announce.send({ embeds: [embed] }).catch(() => {});
 }

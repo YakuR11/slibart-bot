@@ -72,7 +72,7 @@ async function draw(client) {
         const embed = new EmbedBuilder()
             .setColor(ui.COLORS.bigwin)
             .setTitle(`🎟️ LOTERIE · tirage n°${round}`)
-            .setDescription(`🥳 ${user} remporte le pot de **${fmt(pay.net)}** ${config.rbEmoji}${pay.cut ? ` (banque -${fmt(pay.cut)}, dette ${fmt(pay.debt)})` : ''} avec **${winner.tickets}** ticket(s) sur ${total} !\n\nProchain tirage ${ui.ts(nextDraw())} · tickets dans l'app (vocal → Activités)`)
+            .setDescription(`🥳 ${user} remporte le pot de **${fmt(pay.net)}** ${config.rbEmoji}${pay.cut ? ` (banque -${fmt(pay.cut)}, dette ${fmt(pay.debt)})` : ''} avec **${winner.tickets}** ticket(s) sur ${total} !\n\nProchain tirage ${ui.ts(nextDraw())} · \`${config.prefix}loto\` dans le chat`)
             .setThumbnail(avatar(user));
         await channel.send({ content: `${user}`, embeds: [embed] }).catch(() => {});
     }

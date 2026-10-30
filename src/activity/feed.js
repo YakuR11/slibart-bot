@@ -60,7 +60,7 @@ function pub(e) {
  * Annonce d'une mise.
  * player = { id, name, avatar, skins }, balBefore = solde avant la mise (pour l'all-in)
  */
-function start({ player, game, bet, allin = false, balBefore = 0, text = null, vs = null }) {
+function start({ player, game, bet, allin = false, balBefore = 0, text = null, vs = null, where = null }) {
     const realAllin = !!allin && balBefore > ALLIN_MIN;
     const e = {
         id: `${boot}-${++seq}`,
@@ -71,6 +71,7 @@ function start({ player, game, bet, allin = false, balBefore = 0, text = null, v
         allin: realAllin,
         tier: tierOf(bet, realAllin),
         text,
+        where,
         at: Date.now(),
         state: 'live',
     };
@@ -235,7 +236,7 @@ async function postDiscord(e, who) {
     const embed = new EmbedBuilder()
         .setColor(won ? (big ? '#2ecc71' : '#8fe3a1') : (big ? '#e74c3c' : '#ff8a7a'))
         .setTitle(title)
-        .setDescription(`${line}\n-# 🚀 joué dans l'app (vocal → Activités)`);
+        .setDescription(`${line}\n-# ${e.where === 'chat' ? 'joué dans le chat' : 'joué dans l\'app (vocal, sur PC)'}`);
     if (e.gif) embed.setImage(e.gif);
     const u = await client.users.fetch(who.id).catch(() => null);
     if (u) embed.setThumbnail(u.displayAvatarURL({ extension: 'png', size: 128 }));

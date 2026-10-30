@@ -170,7 +170,7 @@ docker compose --profile tunnel up -d --build
 docker compose logs -f bot     # doit afficher "[activity] Plinko sur le port 3001"
 ```
 
-**5. Jouer** · rejoins un vocal → clique sur la **fusée 🚀** (Activités) → choisis le bot. Ou tape **/plinko** n'importe où.
+**5. Jouer** · dans le chat, y compris sur téléphone : `=g r 300`, `=slots 100`, `=pk 100`. Sur PC, le vocal et la fusée 🚀 ouvrent en plus la fenêtre. `/plinko` sans mise tente d'ouvrir cette fenêtre.
 
 ### Tester sur ton PC sans Discord
 
@@ -186,7 +186,7 @@ dans le `.env`, relance, puis ouvre http://localhost:3001/?name=Hicham. **Remets
 
 ### 🎰 L'app du casino (tous les jeux d'argent passent par là)
 
-Les jeux d'argent ne se jouent plus en commande dans le chat : `=gamble`, `=slots`, `=bj`, `=mines`, `=crash`, `=loto` et `=duel` répondent juste où trouver l'app. Tout le reste (work, give, bank, profil…) ne change pas.
+L'activité Discord (la fenêtre dans un vocal) ne s'ouvre pas sur téléphone. Les jeux se jouent donc aussi dans le chat, avec des boutons : `=g r 300`, `=slots 100`, `=bj 200`, `=mines 200`, `=crash 300`, `=pk 100`, `=loto 5`, `=duel @quelqu'un 200`. Sur PC, le vocal et la fusée 🚀 restent là pour la même table.
 
 - **Casino** : Plinko, Crash (une fusée pour tout le vocal), Roulette, Slots (jackpot progressif), Blackjack, Mines, Loto (tirage à 21h) et Duel pierre-feuille-ciseaux entre deux joueurs de l'app. On ne tape que la mise, tout le reste se fait avec des boutons. Une manche de Crash en cours est reprise si le bot redémarre : les mises ne disparaissent pas avec le process.
 - **Centre des paris** (colonne de gauche) : tout le monde voit tous les paris en deux temps, d'abord la mise puis le résultat. Plus la mise est grosse, plus la carte est grande. Le résultat rayonne en vert ou en rouge, plus fort quand la somme est grosse. Un tapis de plus de 1 000 illumine l'écran de tout le monde, une mise ≥ 2 000 gagnée notifie tout le monde avec le GIF perso du gagnant, et les grosses pertes ont droit à des 🤣.

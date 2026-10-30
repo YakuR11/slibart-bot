@@ -62,7 +62,7 @@ async function build(client, day = paris.now().day) {
     }
     if (lines.length) embed.addFields({ name: '🎲 Jeu par jeu', value: lines.join('\n').slice(0, 1024) });
     if (addict) embed.addFields({ name: '🧟 Le plus accro', value: `**${await name(addict.id)}** avec **${fmt(addict.games)}** paris (${fmt(addict.wager)} ${RB} misés)` });
-    embed.setFooter({ text: 'Tous les soirs à 23h55 · joue dans l\'app (vocal → Activités)' });
+    embed.setFooter({ text: 'Tous les soirs à 23h55 · =g =slots =bj =pk marchent dans le chat, y compris sur téléphone' });
     return embed;
 }
 
