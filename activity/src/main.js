@@ -811,6 +811,7 @@ function renderMe(skins) {
     state.skins = { ...DEFAULTS, ...skins };
     const btn = $('me-btn');
     btn.replaceChildren(avatarEl({ ...state.me, skins: state.skins }, 30));
+    btn.setAttribute('aria-label', state.me?.name ? `Profil de ${state.me.name}` : 'Mon profil');
 }
 
 // ---------------------------------------------------------------------------

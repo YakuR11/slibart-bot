@@ -147,7 +147,8 @@ export function decoSvg(look) {
  * opts.onClick(id) : ouvre le profil
  */
 export function avatarEl(user, size = 32, opts = {}) {
-    const wrap = document.createElement('span');
+    const clickable = Boolean(opts.onClick && user?.id);
+    const wrap = document.createElement(clickable ? 'button' : 'span');
     wrap.className = 'av-wrap';
     wrap.style.setProperty('--s', `${size}px`);
     const img = document.createElement('img');
@@ -158,9 +159,12 @@ export function avatarEl(user, size = 32, opts = {}) {
     wrap.append(img);
     setFrame(wrap, user?.skins);
     if (opts.color) wrap.style.setProperty('--c', opts.color);
-    if (opts.onClick && user?.id) {
+    if (clickable) {
+        wrap.type = 'button';
         wrap.classList.add('click');
-        wrap.title = `Voir le profil de ${user.name || ''}`;
+        const name = user.name || 'ce joueur';
+        wrap.setAttribute('aria-label', `Voir le profil de ${name}`);
+        wrap.title = `Voir le profil de ${name}`;
         wrap.addEventListener('click', (e) => {
             e.stopPropagation();
             opts.onClick(user.id);
