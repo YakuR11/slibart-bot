@@ -2,8 +2,19 @@ import { DiscordSDK } from '@discord/embedded-app-sdk';
 import { Board, bucketColor, multLabel, reduceMotion } from './board.js';
 import { sound } from './sound.js';
 import { CrashView } from './crash.js';
-import { ShopView } from './shop.js';
-import { DEFAULTS, lookOf, ballColor, applyTable, frameAttrs } from './looks.js';
+import { fx } from './fx.js';
+import { avatarEl, setFrame, DEFAULTS } from './avatar.js';
+import { FeedView } from './views/feed.js';
+import { RouletteView } from './views/roulette.js';
+import { SlotsView } from './views/slots.js';
+import { BlackjackView } from './views/blackjack.js';
+import { MinesView } from './views/mines.js';
+import { LotoView } from './views/loto.js';
+import { DuelView } from './views/duel.js';
+import { WorkView } from './views/work.js';
+import { MapView } from './views/map.js';
+import { ShopView } from './views/shop.js';
+import { openProfile } from './views/profile.js';
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Math.trunc(Number(n) || 0).toLocaleString('fr-FR').replace(/ | /g, ' ');
@@ -24,7 +35,8 @@ const state = {
     sessionNet: 0,
     streak: 0,
     needSync: false,
-    skins: { ...DEFAULTS }, // mes skins equipes
+    skins: { ...DEFAULTS }, // mon cadre
+    page: 'casino',
     view: 'plinko',
 };
 
@@ -280,11 +292,8 @@ function drop() {
 
     const rec = { id: ++state.seq, bet, rows: state.rows, risk: state.risk, settled: false, landed: false, received: 0, payout: 0, mult: null };
     recs.set(rec.id, rec);
-    const look = lookOf(state.skins, 'ball');
     rec.ball = board.addBall({
-        color: ballColor(look),
-        look,
-        trailLook: lookOf(state.skins, 'trail'),
+        color: ME_COLOR,
         mine: true,
         onPeg: (r, b) => sound.peg(r, rec.rows, true, b.slow < 1),
         onTension: (level, remaining) => sound.tension(level, remaining),
@@ -430,8 +439,7 @@ function ensureFriend(p) {
     if (!f) {
         const li = document.createElement('li');
         li.className = 'pal';
-        const img = document.createElement('img');
-        img.alt = '';
+        const img = avatarEl(p, 30, { onClick: (id) => app.openProfile(id) });
         const who = document.createElement('div');
         who.className = 'who';
         const name = document.createElement('b');
@@ -455,10 +463,10 @@ function ensureFriend(p) {
     f.li.style.setProperty('--c', f.color);
     if (p.skins) {
         f.skins = p.skins;
-        frameAttrs(f.img, p.skins);
-        f.board.setTheme(lookOf(p.skins, 'board'));
+        setFrame(f.img, p.skins);
     }
-    if (f.img.getAttribute('src') !== p.avatar) f.img.src = p.avatar;
+    const av = f.img.querySelector('.av');
+    if (av.getAttribute('src') !== p.avatar) av.src = p.avatar;
     f.name.textContent = p.name;
     if (p.rows && p.risk) setFriendCfg(f, p.rows, p.risk);
     return f;
@@ -486,12 +494,13 @@ function renderPlayers(list) {
     const ul = $('players');
     ul.replaceChildren(...list.slice(0, 8).map((p) => {
         const li = document.createElement('li');
-        li.style.backgroundImage = `url("${p.avatar}")`;
         li.title = p.name;
         li.style.setProperty('--c', p.id === state.me?.id ? '#ffd76a' : (p.color || '#cdbb9f'));
-        frameAttrs(li, p.skins);
+        li.append(avatarEl(p, 30, { onClick: (id) => app.openProfile(id) }));
         return li;
     }));
+    const mine = list.find((p) => p.id === state.me?.id);
+    if (mine?.skins) renderMe(mine.skins);
     const ids = new Set(list.map((p) => p.id));
     for (const [id, f] of friends) {
         if (!ids.has(id)) {
@@ -509,11 +518,9 @@ function onFriendDrop(msg) {
     if (!f) return;
     setFriendCfg(f, msg.rows, msg.risk);
     const net = Math.floor(msg.net);
-    const fl = msg.player.skins || f.skins;
     f.board.addBall({
         path: msg.path,
         color: f.color,
-        look: fl ? lookOf(fl, 'ball') : null,
         onLand: () => {
             f.net += net;
             renderFriendInfo(f);
@@ -534,8 +541,6 @@ function onFriendDrop(msg) {
             path: msg.path,
             color: f.color,
             img: avatarImg(f.player.avatar),
-            look: fl ? lookOf(fl, 'ball') : null,
-            trailLook: fl ? lookOf(fl, 'trail') : null,
             label: firstName(f.player.name),
             onPeg: (r) => sound.peg(r, msg.rows, false),
             onLand: (k, pos) => {
@@ -605,6 +610,9 @@ function connectRoom(attempt = 0) {
             case 'players': renderPlayers(m.players || []); break;
             case 'crash:state': case 'crash:bet': case 'crash:cancel': case 'crash:cashout': case 'crash:balance': case 'crash:res':
                 crash.onMessage(m); break;
+            case 'res': { const r = pending.get(m.rid); pending.delete(m.rid); r?.(m); break; }
+            case 'feed:init': case 'feed:bet': case 'feed:result': case 'feed:cancel': feedView.onMessage(m); break;
+            case 'duel:invite': case 'duel:update': case 'duel:reveal': views.duel.onMessage(m); break;
             case 'cfg': { const f = friends.get(m.id); if (f) setFriendCfg(f, m.rows, m.risk); break; }
             case 'drop': if (m.player?.id !== state.me?.id) onFriendDrop(m); break;
             default:
@@ -699,9 +707,12 @@ async function boot() {
         // le solde peut bouger ailleurs (work, daily...) : on le resynchronise quand rien ne tombe
         setInterval(() => { if (!recs.size && !state.auto) sync(); }, 15000);
         // mode test uniquement : de quoi declencher les effets a la main
-        if (state.cfg.dev) window.plinkoDebug = { state, recs, board, celebrate, bigWin, friendBigWin, friends, crash, shop };
-        // mes skins (tables, bille...) des le chargement
-        api('api/shop').then(({ ok, data }) => ok && applySkins(data.equipped));
+        if (state.cfg.dev) window.plinkoDebug = { state, recs, board, celebrate, bigWin, friendBigWin, friends, crash, views, app, feedView };
+        renderMe(state.skins);
+        api('api/shop').then(({ ok, data }) => ok && renderMe(data.equipped));
+        // le "!" du Work se met a jour meme si on n'est pas sur la page
+        workView.refresh();
+        setInterval(() => workView.renderCounts(), 5000);
     } catch (e) {
         gate(e.message || 'Connexion impossible.');
     }
@@ -766,7 +777,7 @@ $('bigwin').addEventListener('click', closeBigWin);
 let lastKey = 0;
 document.addEventListener('keydown', (e) => {
     if (e.code !== 'Space' || document.activeElement?.tagName === 'INPUT' || !$('gate').hidden) return;
-    if (state.view === 'shop') return;
+    if (state.page !== 'casino' || !['plinko', 'crash'].includes(state.view)) return;
     e.preventDefault();
     const now = performance.now();
     if (state.view === 'crash') {
@@ -781,26 +792,115 @@ document.addEventListener('keydown', (e) => {
 // ---------------------------------------------------------------------------
 // skins, onglets, Crash, Boutique
 // ---------------------------------------------------------------------------
-function applySkins(equipped) {
-    state.skins = { ...DEFAULTS, ...equipped };
-    const table = lookOf(state.skins, 'board');
-    applyTable($('board-wrap'), table);
-    applyTable($('crash-wrap'), table);
-    board.setTheme(table);
-}
-
-function setBalance(bal) {
+function setBalance(bal, celebrateUp = false) {
     if (!Number.isFinite(Number(bal))) return;
     const up = Number(bal) > target();
     state.server = Number(bal);
-    renderBalance(up ? 600 : 0, up ? 'up' : null);
+    renderBalance(up && celebrateUp ? 700 : up ? 400 : 0, up && celebrateUp ? 'up' : null);
 }
 
+function renderMe(skins) {
+    state.skins = { ...DEFAULTS, ...skins };
+    const btn = $('me-btn');
+    btn.replaceChildren(avatarEl({ ...state.me, skins: state.skins }, 30));
+}
+
+// ---------------------------------------------------------------------------
+// requetes de l'app (jeux, work, carte, profils) par la connexion temps reel
+// ---------------------------------------------------------------------------
+const pending = new Map();
+let reqSeq = 0;
+function req(op, args = {}) {
+    return new Promise((resolve) => {
+        const rid = ++reqSeq;
+        if (!wsSend({ type: 'req', id: rid, op, args })) return resolve({ error: 'Connexion perdue, réessaie dans une seconde.' });
+        pending.set(rid, resolve);
+        setTimeout(() => {
+            if (pending.has(rid)) {
+                pending.delete(rid);
+                resolve({ error: 'Pas de réponse du serveur, réessaie.' });
+            }
+        }, 12000);
+    });
+}
+
+// ---------------------------------------------------------------------------
+// gros moments partages : tapis / mise >= 2000 gagnee (+ GIF perso)
+// ---------------------------------------------------------------------------
+function hype(e) {
+    const el = $('hype');
+    const won = e.net > 0;
+    const who = e.winner && e.vs ? (e.winner === e.player.id ? e.player : e.vs) : e.player;
+    const games = { plinko: 'Plinko', crash: 'Crash', roulette: 'Roulette', slots: 'Slots', blackjack: 'Blackjack', mines: 'Mines', loto: 'Loto', duel: 'Duel' };
+    const box = document.createElement('div');
+    box.className = `hype-box ${won ? 'win' : 'lose'}`;
+    const title = document.createElement('div');
+    title.className = 'hype-title';
+    title.textContent = e.allin ? (won ? 'TAPIS GAGNÉ' : 'TAPIS PERDU') : 'ÉNORME GAIN';
+    const av = avatarEl(who, 84, { onClick: (id) => app.openProfile(id) });
+    const name = document.createElement('b');
+    name.className = 'hype-name';
+    name.textContent = who.name;
+    const amt = document.createElement('div');
+    amt.className = 'hype-amt';
+    amt.textContent = `${won ? '+' : '−'}${fmt(Math.abs(e.net))} RB`;
+    const sub = document.createElement('small');
+    sub.textContent = `${games[e.game] || e.game} · mise ${fmt(e.bet)}${e.mult ? ` · ×${e.mult}` : ''}`;
+    box.append(title, av, name, amt, sub);
+    if (e.gif) {
+        const g = document.createElement('img');
+        g.className = 'hype-gif';
+        g.alt = '';
+        g.src = `gifp?u=${encodeURIComponent(e.gif)}`;
+        box.prepend(g);
+    }
+    if (!won) box.append(Object.assign(document.createElement('div'), { className: 'hype-lol', textContent: '🤣🤣🤣' }));
+    el.replaceChildren(box);
+    el.hidden = false;
+    el.onclick = () => { el.hidden = true; };
+    if (won) {
+        fx.confetti(e.allin ? 180 : 110);
+        sound.bigWin(e.allin ? 3 : 2, 2.2);
+    } else {
+        sound.sad();
+        fx.emojis('🤣', window.innerWidth / 2, window.innerHeight * 0.6, 18, 1.4);
+    }
+    clearTimeout(el._t);
+    el._t = setTimeout(() => { el.hidden = true; }, e.gif ? 6000 : 4200);
+}
+
+// ---------------------------------------------------------------------------
+// l'objet "app" donne aux vues
+// ---------------------------------------------------------------------------
+const app = {
+    req,
+    api,
+    toast,
+    sound,
+    fx,
+    hype,
+    me: () => ({ ...state.me, skins: state.skins }),
+    balance: () => target(),
+    setBalance,
+    get minBet() { return state.cfg?.minBet || 10; },
+    showBigWin,
+    openProfile: (id) => openProfile(app, id),
+    onSkins: (eq) => renderMe(eq),
+    afterGame: (r) => {
+        state.sessionNet += r.net || 0;
+        renderSession();
+        for (const n of r.notices || []) toast(n);
+    },
+    setWorkBang: (on) => { $('work-bang').hidden = !on; },
+    goGame: (g) => { setPage('casino'); setGame(g); },
+    duelInvite,
+};
+
+const feedView = new FeedView(app);
 const crash = new CrashView({
     send: wsSend,
     me: () => state.me,
-    mySkins: () => state.skins,
-    onBalance: setBalance,
+    onBalance: (b) => setBalance(b, true),
     toast,
     sound,
     celebrate: (mult, net, bet) => {
@@ -814,36 +914,103 @@ const crash = new CrashView({
     maxBet: () => target(),
     get minBet() { return state.cfg?.minBet || 10; },
 });
+const views = {
+    roulette: new RouletteView($('v-roulette'), app),
+    slots: new SlotsView($('v-slots'), app),
+    blackjack: new BlackjackView($('v-blackjack'), app),
+    mines: new MinesView($('v-mines'), app),
+    loto: new LotoView($('v-loto'), app),
+    duel: new DuelView($('v-duel'), app),
+};
+const workView = new WorkView($('p-work'), app);
+const mapView = new MapView($('p-map'), app);
+const shopView = new ShopView($('p-shop'), app);
 
-const shop = new ShopView({
-    api,
-    toast,
-    sound,
-    me: () => state.me,
-    avatarImg,
-    balance: () => target(),
-    onBalance: setBalance,
-    onEquip: (eq) => applySkins(eq),
-});
-
-function setView(view) {
-    state.view = view;
-    for (const b of $('tabs').children) b.setAttribute('aria-selected', String(b.dataset.view === view));
-    for (const el of document.querySelectorAll('.view')) el.hidden = el.dataset.view !== view;
-    crash.show(view === 'crash');
-    shop.show(view === 'shop');
-    if (view === 'plinko') board.resize();
-    try { localStorage.setItem('casino-view', view); } catch { /* rien */ }
+/** invitation en duel : fenetre par-dessus tout, ou qu'on soit */
+function duelInvite(d) {
+    const modal = $('modal');
+    modal.hidden = false;
+    const box = document.createElement('div');
+    box.className = 'invite';
+    const title = document.createElement('h3');
+    title.textContent = '⚔️ Duel !';
+    const who = document.createElement('div');
+    who.className = 'invite-who';
+    const txt = document.createElement('p');
+    txt.textContent = `${d.from.name} te défie ${d.amount ? `pour ${fmt(d.amount)} RB` : 'pour l\'honneur'} (pierre-feuille-ciseaux).`;
+    who.append(avatarEl(d.from, 70), txt);
+    const yes = document.createElement('button');
+    yes.className = 'drop';
+    yes.textContent = 'Accepter';
+    const no = document.createElement('button');
+    no.className = 'chip stop';
+    no.textContent = 'Refuser';
+    const answer = async (accept) => {
+        modal.hidden = true;
+        modal.replaceChildren();
+        $('duel-bang').hidden = true;
+        const r = await req('duel.answer', { id: d.id, accept });
+        if (r.error) toast(r.error, true);
+        else if (accept) app.goGame('duel');
+    };
+    yes.onclick = () => answer(true);
+    no.onclick = () => answer(false);
+    const row = document.createElement('div');
+    row.className = 'invite-btns';
+    row.append(no, yes);
+    box.append(title, who, row);
+    modal.replaceChildren(box);
+    modal.onclick = null;
+    $('duel-bang').hidden = false;
+    sound.duelStart();
+    setTimeout(() => { if (modal.contains(box)) { modal.hidden = true; modal.replaceChildren(); $('duel-bang').hidden = true; } }, 30000);
 }
+
+// ---------------------------------------------------------------------------
+// navigation : pages (Casino, Work, Carte, Boutique) et jeux du casino
+// ---------------------------------------------------------------------------
+function setPage(page) {
+    state.page = page;
+    for (const b of $('tabs').children) b.setAttribute('aria-selected', String(b.dataset.page === page));
+    for (const el of document.querySelectorAll('.page')) el.hidden = el.dataset.page !== page;
+    const casino = page === 'casino';
+    crash.show(casino && state.view === 'crash');
+    workView.show(page === 'work');
+    mapView.show(page === 'map');
+    shopView.show(page === 'shop');
+    if (casino && state.view === 'plinko') board.resize();
+    try { localStorage.setItem('casino-page', page); } catch { /* rien */ }
+}
+
+function setGame(game) {
+    state.view = game;
+    for (const b of $('games').children) b.setAttribute('aria-selected', String(b.dataset.game === game));
+    for (const el of document.querySelectorAll('.view')) el.hidden = el.dataset.view !== game;
+    crash.show(state.page === 'casino' && game === 'crash');
+    if (game === 'plinko') board.resize();
+    views[game]?.show?.(true);
+    if (game === 'duel') $('duel-bang').hidden = true;
+    try { localStorage.setItem('casino-view', game); } catch { /* rien */ }
+}
+
 $('tabs').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-view]');
+    const b = e.target.closest('[data-page]');
     if (!b) return;
     sound.unlock();
-    setView(b.dataset.view);
+    setPage(b.dataset.page);
 });
+$('games').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-game]');
+    if (!b) return;
+    sound.unlock();
+    setGame(b.dataset.game);
+});
+$('me-btn').addEventListener('click', () => state.me && app.openProfile(state.me.id));
 try {
-    const v = localStorage.getItem('casino-view');
-    if (v && v !== 'plinko') setView(v);
+    const g = localStorage.getItem('casino-view');
+    if (g && g !== 'plinko' && document.querySelector(`[data-game="${g}"]`)) setGame(g);
+    const p = localStorage.getItem('casino-page');
+    if (p && p !== 'casino') setPage(p);
 } catch { /* rien */ }
 
 boot();

@@ -257,6 +257,84 @@ export const sound = {
         noise({ dur: 0.6, gain: 0.12, type: 'lowpass', freq: 1800, slideTo: 200 });
         noise({ dur: 0.15, gain: 0.08, freq: 5000, q: 1 });
     },
+    // ---------------- jeux de l'app ----------------
+    /** tic de roue / rouleau qui ralentit (t = 0..1 : de plus en plus grave) */
+    spinTick(t = 0) {
+        if (!allow(1, 9)) return;
+        osc(1500 - t * 700, { type: 'square', dur: 0.022, gain: 0.018 });
+    },
+    lever() {
+        noise({ dur: 0.25, gain: 0.05, freq: 600, slideTo: 2400, q: 2 });
+        osc(180, { dur: 0.2, gain: 0.05, slide: 120, type: 'triangle' });
+    },
+    reelStop(i = 0) {
+        osc(200 - i * 25, { dur: 0.12, gain: 0.12, slide: -60 });
+        noise({ dur: 0.06, gain: 0.06, type: 'lowpass', freq: 900 });
+    },
+    heartbeat() {
+        for (let i = 0; i < 3; i++) {
+            osc(60, { at: i * 0.45, dur: 0.13, gain: 0.3, slide: -22 });
+            osc(56, { at: i * 0.45 + 0.16, dur: 0.12, gain: 0.22, slide: -20 });
+        }
+    },
+    /** gain : 1 petit, 2 moyen, 3 gros */
+    win(level = 1) {
+        const steps = level >= 3 ? [0, 2, 4, 5, 7, 9, 10] : level === 2 ? [0, 2, 4, 7, 9] : [0, 2, 4, 7];
+        arp(steps, { gap: 0.06, gain: 0.055 });
+        for (let i = 0; i < 3 + level * 4; i++) coin(0.1 + i * 0.06, 0.9 + Math.random() * 0.4, 0.022);
+    },
+    /** perte : grave, plus long si c'est une grosse perte */
+    lose(amount = 0) {
+        if (amount >= 2000) return this.sad();
+        osc(220, { type: 'triangle', dur: 0.18, gain: 0.05, slide: -60 });
+        osc(165, { type: 'triangle', dur: 0.25, gain: 0.05, slide: -50, at: 0.14 });
+    },
+    /** trombone triste "wah wah wah waaah" */
+    sad() {
+        const n = [392, 370, 349, 330];
+        n.forEach((f, i) => osc(f, { type: 'sawtooth', dur: i === 3 ? 0.9 : 0.32, gain: 0.035, at: i * 0.34, slide: i === 3 ? -40 : 0 }));
+    },
+    /** des petits rires (grosse perte d'un pote) */
+    laugh() {
+        if (!allow(3, 10)) return;
+        for (let i = 0; i < 5; i++) {
+            osc(520 + Math.random() * 80, { type: 'triangle', dur: 0.08, gain: 0.03, at: i * 0.11, slide: -120 });
+            noise({ at: i * 0.11, dur: 0.06, gain: 0.015, freq: 2200, q: 2 });
+        }
+    },
+    betBig(tier = 4) {
+        if (!allow(2, 10)) return;
+        osc(tier >= 5 ? 110 : 150, { dur: 0.35, gain: 0.12, slide: -40 });
+        noise({ dur: 0.3, gain: 0.04, freq: 500, slideTo: 3000, q: 2 });
+    },
+    card() {
+        if (!allow(1)) return;
+        noise({ dur: 0.07, gain: 0.07, freq: 3000, q: 0.8, slideTo: 1200 });
+    },
+    flip() {
+        noise({ dur: 0.05, gain: 0.06, freq: 2400, q: 1 });
+        osc(700, { type: 'sine', dur: 0.06, gain: 0.02 });
+    },
+    gem(k = 1) {
+        osc(note(4 + Math.min(k, 12), 523.25), { type: 'sine', dur: 0.25, gain: 0.05 });
+        osc(note(6 + Math.min(k, 12), 523.25), { type: 'sine', dur: 0.2, gain: 0.03, at: 0.05 });
+    },
+    bomb() {
+        osc(55, { dur: 0.8, gain: 0.45, slide: -30 });
+        noise({ dur: 0.7, gain: 0.16, type: 'lowpass', freq: 2200, slideTo: 150 });
+    },
+    pickaxe() {
+        if (!allow(1)) return;
+        osc(2200 + Math.random() * 400, { type: 'square', dur: 0.03, gain: 0.02 });
+        noise({ dur: 0.05, gain: 0.05, freq: 4000, q: 3 });
+        osc(140, { dur: 0.08, gain: 0.06, slide: -40 });
+    },
+    duelStart() {
+        arp([0, 4, 7], { base: 392, gap: 0.09, gain: 0.05, type: 'sawtooth', dur: 0.2 });
+    },
+    drum() {
+        for (let i = 0; i < 8; i++) noise({ at: i * 0.11, dur: 0.06, gain: 0.05 + i * 0.008, type: 'lowpass', freq: 400 });
+    },
     // ---------------- boutique ----------------
     purchase() {
         arp([0, 2, 4, 5, 7, 9], { gap: 0.05, gain: 0.05 });

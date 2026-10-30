@@ -1,64 +1,70 @@
-// Catalogue des skins (cosmetiques uniquement, aucun effet sur les gains).
+// Catalogue des cadres d'avatar (cosmetique, visible par tout le monde dans l'app).
 // Fichier "pur" : utilise par le bot (achat, coffres) ET compile dans l'interface de l'Activity.
+//
+// look.kind :
+//   none / ring / glow / fire / rainbow : anneau autour de l'avatar (CSS)
+//   deco  : decoration dessinee (chapeau, oreilles...) -> look.deco
+//   flag  : drapeau -> look.flag (anneau aux couleurs + medaillon)
 
-const RARITIES = {
-    commun: { label: 'Commun', color: '#b9c2c9', price: 2_500, rank: 1 },
-    rare: { label: 'Rare', color: '#4fa3ff', price: 10_000, rank: 2 },
-    epique: { label: 'Épique', color: '#b56bff', price: 40_000, rank: 3 },
-    legendaire: { label: 'Légendaire', color: '#ffb627', price: 150_000, rank: 4 },
-};
+const PRICE = 500;
+const GIF_PRICE = 1000; // GIF perso affiche quand tu gagnes gros
 
 const SLOTS = {
-    ball: { label: 'Billes', hint: 'Ta bille au Plinko et ta fusée au Crash' },
-    trail: { label: 'Traînées', hint: 'Ce que ta bille laisse derrière elle' },
-    board: { label: 'Tables', hint: 'Le tapis de jeu (Plinko et Crash)' },
-    frame: { label: 'Cadres', hint: 'Autour de ton avatar, visible par tout le vocal' },
+    frame: { label: 'Cadres', hint: 'Autour de ta pp, visible par tout le vocal' },
 };
 
-// look : description visuelle lue par l'interface
-// chest : uniquement dans les coffres (pas en vente)
+const FLAGS = {
+    fr: { name: 'France', colors: ['#0055a4', '#ffffff', '#ef4135'] },
+    dz: { name: 'Algérie', colors: ['#006233', '#ffffff', '#d21034'] },
+    ma: { name: 'Maroc', colors: ['#c1272d', '#c1272d', '#006233'] },
+    tn: { name: 'Tunisie', colors: ['#e70013', '#ffffff', '#e70013'] },
+    sn: { name: 'Sénégal', colors: ['#00853f', '#fdef42', '#e31b23'] },
+    ci: { name: 'Côte d\'Ivoire', colors: ['#f77f00', '#ffffff', '#009e60'] },
+    ml: { name: 'Mali', colors: ['#14b53a', '#fcd116', '#ce1126'] },
+    cm: { name: 'Cameroun', colors: ['#007a5e', '#ce1126', '#fcd116'] },
+    pt: { name: 'Portugal', colors: ['#006600', '#ffcc00', '#ff0000'] },
+    es: { name: 'Espagne', colors: ['#aa151b', '#f1bf00', '#aa151b'] },
+    it: { name: 'Italie', colors: ['#009246', '#ffffff', '#ce2b37'] },
+    be: { name: 'Belgique', colors: ['#000000', '#fae042', '#ed2939'] },
+    tr: { name: 'Turquie', colors: ['#e30a17', '#ffffff', '#e30a17'] },
+    br: { name: 'Brésil', colors: ['#009c3b', '#ffdf00', '#002776'] },
+    jp: { name: 'Japon', colors: ['#ffffff', '#bc002d', '#ffffff'] },
+    km: { name: 'Comores', colors: ['#ffc61e', '#3a75c4', '#3d8e33'] },
+};
+
 const SKINS = {
-    // ---- billes ----
-    'ball:or': { slot: 'ball', name: 'Or', rarity: 'commun', default: true, look: { kind: 'grad', colors: ['#fff6d8', '#ffd76a', '#8a5a12'] } },
-    'ball:rubis': { slot: 'ball', name: 'Rubis', rarity: 'commun', look: { kind: 'grad', colors: ['#ffd0d6', '#ff3355', '#5a0012'] } },
-    'ball:emeraude': { slot: 'ball', name: 'Émeraude', rarity: 'commun', look: { kind: 'grad', colors: ['#d8ffe6', '#25d07a', '#063d22'] } },
-    'ball:saphir': { slot: 'ball', name: 'Saphir', rarity: 'commun', look: { kind: 'grad', colors: ['#d6ecff', '#3d8bff', '#0b2257'] } },
-    'ball:neon-rose': { slot: 'ball', name: 'Néon rose', rarity: 'rare', look: { kind: 'glow', colors: ['#ffffff', '#ff4fd8', '#7a0a63'], glow: '#ff4fd8' } },
-    'ball:neon-cyan': { slot: 'ball', name: 'Néon cyan', rarity: 'rare', look: { kind: 'glow', colors: ['#ffffff', '#3df2ff', '#06606b'], glow: '#3df2ff' } },
-    'ball:lave': { slot: 'ball', name: 'Lave', rarity: 'epique', look: { kind: 'lava', glow: '#ff6a00' } },
-    'ball:galaxie': { slot: 'ball', name: 'Galaxie', rarity: 'epique', look: { kind: 'galaxy', glow: '#9b7bff' } },
-    'ball:caca': { slot: 'ball', name: 'La Puante', rarity: 'epique', chest: true, look: { kind: 'emoji', emoji: '💩', glow: '#9be15d' } },
-    'ball:disco': { slot: 'ball', name: 'Boule disco', rarity: 'legendaire', look: { kind: 'rainbow', glow: '#ffffff' } },
-    'ball:slip': { slot: 'ball', name: 'Slip doré', rarity: 'legendaire', chest: true, look: { kind: 'emoji', emoji: '🩲', glow: '#ffd76a' } },
-
-    // ---- trainees ----
-    'trail:classique': { slot: 'trail', name: 'Classique', rarity: 'commun', default: true, look: { kind: 'same' } },
-    'trail:etincelles': { slot: 'trail', name: 'Étincelles', rarity: 'rare', look: { kind: 'sparks', color: '#fff1c4' } },
-    'trail:feu': { slot: 'trail', name: 'Feu', rarity: 'rare', look: { kind: 'fire' } },
-    'trail:arc': { slot: 'trail', name: 'Arc-en-ciel', rarity: 'epique', look: { kind: 'rainbow' } },
-    'trail:puante': { slot: 'trail', name: 'Nuage puant', rarity: 'epique', chest: true, look: { kind: 'stink', color: '#9be15d' } },
-    'trail:comete': { slot: 'trail', name: 'Comète', rarity: 'legendaire', look: { kind: 'comet', color: '#bfe9ff' } },
-
-    // ---- tables ----
-    'board:canard': { slot: 'board', name: 'Feutrine canard', rarity: 'commun', default: true, look: { felt: '#0f4c4a', felt2: '#13615e', peg: ['#f3cf7a', '#d9a441', '#8f6420'] } },
-    'board:nuit': { slot: 'board', name: 'Nuit bleue', rarity: 'commun', look: { felt: '#0e1a3a', felt2: '#1d2f66', peg: ['#eef4ff', '#9fb4e6', '#4a5a8a'] } },
-    'board:velours': { slot: 'board', name: 'Velours', rarity: 'rare', look: { felt: '#3b0f3f', felt2: '#5e1d63', peg: ['#ffd6f5', '#e58fd0', '#7a2d6a'] } },
-    'board:egout': { slot: 'board', name: 'Égout du slip', rarity: 'epique', chest: true, look: { felt: '#1f2a12', felt2: '#34451d', peg: ['#e6ffb3', '#9be15d', '#3f5c1c'] } },
-    'board:neon': { slot: 'board', name: 'Néon', rarity: 'epique', look: { felt: '#07080f', felt2: '#141a33', peg: ['#c9fbff', '#3df2ff', '#0a6b75'], neon: '#3df2ff' } },
-    'board:or': { slot: 'board', name: 'Salon doré', rarity: 'legendaire', look: { felt: '#120d05', felt2: '#2b2110', peg: ['#fff3c4', '#ffd76a', '#9a6a10'], neon: '#ffd76a' } },
-
-    // ---- cadres d'avatar ----
-    'frame:aucun': { slot: 'frame', name: 'Aucun', rarity: 'commun', default: true, look: { kind: 'none' } },
-    'frame:laiton': { slot: 'frame', name: 'Laiton', rarity: 'commun', look: { kind: 'ring', colors: ['#f3cf7a', '#8f6420'] } },
-    'frame:argent': { slot: 'frame', name: 'Argent', rarity: 'commun', look: { kind: 'ring', colors: ['#ffffff', '#8d97a0'] } },
-    'frame:neon': { slot: 'frame', name: 'Néon', rarity: 'rare', look: { kind: 'glow', colors: ['#3df2ff'] } },
-    'frame:flammes': { slot: 'frame', name: 'Flammes', rarity: 'epique', look: { kind: 'fire' } },
-    'frame:couronne': { slot: 'frame', name: 'Couronne', rarity: 'legendaire', look: { kind: 'crown' } },
-    'frame:arc': { slot: 'frame', name: 'Arc-en-ciel', rarity: 'legendaire', chest: true, look: { kind: 'rainbow' } },
+    'frame:aucun': { slot: 'frame', name: 'Aucun', default: true, look: { kind: 'none' } },
+    // anneaux
+    'frame:laiton': { slot: 'frame', name: 'Laiton', look: { kind: 'ring', colors: ['#f3cf7a', '#8f6420'] } },
+    'frame:argent': { slot: 'frame', name: 'Argent', look: { kind: 'ring', colors: ['#ffffff', '#8d97a0'] } },
+    'frame:neon': { slot: 'frame', name: 'Néon', look: { kind: 'glow', colors: ['#3df2ff'] } },
+    'frame:flammes': { slot: 'frame', name: 'Flammes', look: { kind: 'fire' } },
+    'frame:arc': { slot: 'frame', name: 'Arc-en-ciel', look: { kind: 'rainbow' } },
+    // decorations
+    'frame:couronne': { slot: 'frame', name: 'Couronne', look: { kind: 'deco', deco: 'crown' } },
+    'frame:communisme': { slot: 'frame', name: 'Camarade', look: { kind: 'deco', deco: 'communism' } },
+    'frame:gilet': { slot: 'frame', name: 'Gilet jaune', look: { kind: 'deco', deco: 'gilet' } },
+    'frame:chapka': { slot: 'frame', name: 'Chapka', look: { kind: 'deco', deco: 'chapka' } },
+    'frame:chapeau': { slot: 'frame', name: 'Haut-de-forme', look: { kind: 'deco', deco: 'tophat' } },
+    'frame:beret': { slot: 'frame', name: 'Béret baguette', look: { kind: 'deco', deco: 'beret' } },
+    'frame:lapin': { slot: 'frame', name: 'Oreilles de lapin', look: { kind: 'deco', deco: 'bunny' } },
+    'frame:chat': { slot: 'frame', name: 'Chat', look: { kind: 'deco', deco: 'cat' } },
+    'frame:chien': { slot: 'frame', name: 'Chien', look: { kind: 'deco', deco: 'dog' } },
+    'frame:aureole': { slot: 'frame', name: 'Auréole', look: { kind: 'deco', deco: 'halo' } },
+    'frame:diable': { slot: 'frame', name: 'Cornes du diable', look: { kind: 'deco', deco: 'horns' } },
+    'frame:chantier': { slot: 'frame', name: 'Casque de chantier', look: { kind: 'deco', deco: 'hardhat' } },
+    'frame:casque': { slot: 'frame', name: 'Casque audio', look: { kind: 'deco', deco: 'headphones' } },
+    'frame:slip': { slot: 'frame', name: 'Slip doré', chest: true, look: { kind: 'deco', deco: 'slip' } },
 };
+for (const [code, f] of Object.entries(FLAGS)) {
+    SKINS[`frame:flag-${code}`] = { slot: 'frame', name: f.name, flag: true, look: { kind: 'flag', flag: code, colors: f.colors } };
+}
 
-const price = (id) => (SKINS[id] && !SKINS[id].chest && !SKINS[id].default ? RARITIES[SKINS[id].rarity].price : null);
+const price = (id) => (SKINS[id] && !SKINS[id].chest && !SKINS[id].default ? PRICE : null);
 
-const DEFAULTS = Object.fromEntries(Object.keys(SLOTS).map((slot) => [slot, Object.keys(SKINS).find((k) => SKINS[k].slot === slot && SKINS[k].default)]));
+const DEFAULTS = { frame: 'frame:aucun' };
 
-module.exports = { RARITIES, SLOTS, SKINS, DEFAULTS, price };
+// pour l'affichage (le shop n'a plus de raretes, tout est au meme prix)
+const RARITIES = {};
+
+module.exports = { SLOTS, SKINS, FLAGS, DEFAULTS, RARITIES, PRICE, GIF_PRICE, price };

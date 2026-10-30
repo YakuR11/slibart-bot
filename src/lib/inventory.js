@@ -28,9 +28,9 @@ async function list(userId) {
 
 function label(item, qty = 1) {
     if (String(item).startsWith('skin:')) {
-        const { SKINS, RARITIES } = require('./skins-catalog');
+        const { SKINS } = require('./skins-catalog');
         const s = SKINS[item.slice(5)];
-        if (s) return `🎨 **${s.name}** (${RARITIES[s.rarity].label})`;
+        if (s) return `🖼️ Cadre **${s.name}**`;
     }
     return `${ITEMS[item]?.emoji || '❔'} ${qty > 1 ? `${qty}x ` : ''}**${ITEMS[item]?.name || item}**`;
 }

@@ -7,7 +7,7 @@ const config = require('../config');
 const paris = require('./paris');
 const boost = require('./boost');
 const announce = require('./announce');
-const { drawLottery } = require('../commands/casino');
+const loto = require('./loto');
 const { payWeekly } = require('../commands/loot');
 const sports = require('./sports');
 
@@ -20,8 +20,18 @@ async function lotteryTick(client) {
     if (p.h < 21) return;
     if ((await db.getSetting('loto_last_draw')) === p.day) return;
     await db.setSetting('loto_last_draw', p.day);
-    const res = await drawLottery(client);
+    const res = await loto.draw(client);
     if (res) log.info(`[loto] tirage ${res.round} : ${res.winnerId} gagne ${res.pot}`);
+}
+
+// recap du casino dans #daily, tous les soirs a 23h55
+async function recapTick(client) {
+    const p = paris.now();
+    if (p.h < 23 || (p.h === 23 && p.mi < 55)) return;
+    if ((await db.getSetting('recap_last')) === p.day) return;
+    await db.setSetting('recap_last', p.day);
+    const res = await require('./recap').send(client, p.day);
+    if (res.error) log.info(`[recap] ${res.error}`);
 }
 
 async function happyTick() {
@@ -112,6 +122,7 @@ function start(client) {
     setInterval(safe('happy', () => happyTick()), 30_000).unref();
     setInterval(safe('saison', () => weeklyTick(client)), 60_000).unref();
     setInterval(safe('sport', () => sports.tick(client)), 60_000).unref();
+    setInterval(safe('recap', () => recapTick(client)), 60_000).unref();
     safe('happy', () => happyTick())();
     safe('sport', () => sports.tick(client))();
 }

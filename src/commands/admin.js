@@ -84,12 +84,39 @@ module.exports = [
         },
     },
     {
+        name: 'initmap',
+        owner: true,
+        category: 'admin',
+        description: '[admin] Place une maison sur la carte de l\'app pour chaque membre connu (une fois)',
+        async run(ctx) {
+            const db = require('../db');
+            const rows = await db.q('SELECT id_user FROM profile WHERE id_user != ? AND (last_seen > 0 OR rb > 0) ORDER BY rb DESC LIMIT 20', [require('../config').casinoId]);
+            const ids = [];
+            for (const r of rows) {
+                const u = await ctx.client.users.fetch(String(r.id_user)).catch(() => null);
+                if (u && !u.bot) ids.push(String(r.id_user));
+            }
+            const n = await require('../activity/life').initMap(ids);
+            await ctx.reply(`🏘️ ${n} maison(s) placée(s) sur la carte (20 places max). Les nouveaux en reçoivent une en ouvrant l'app.`);
+        },
+    },
+    {
+        name: 'recap',
+        owner: true,
+        category: 'admin',
+        description: '[admin] Envoie le recap du casino du jour dans #daily maintenant',
+        async run(ctx) {
+            const res = await require('../lib/recap').send(ctx.client);
+            await ctx.reply(res.error ? `❌ ${res.error}` : '✅ Récap envoyé dans #daily.');
+        },
+    },
+    {
         name: 'drawloto',
         owner: true,
         category: 'admin',
         description: '[admin] Force le tirage de la loterie maintenant',
         async run(ctx) {
-            const res = await require('./casino').drawLottery(ctx.client);
+            const res = await require('../lib/loto').draw(ctx.client);
             if (!res) return ctx.reply('Personne n\'a de ticket.');
             await ctx.reply(`✅ Tirage n°${res.round} effectué.`);
         },

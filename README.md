@@ -184,13 +184,20 @@ dans le `.env`, relance, puis ouvre http://localhost:3001/?name=Hicham. **Remets
 - **Page blanche / erreur Cloudflare** : le *Public hostname* doit pointer vers `bot:3001` (pas localhost), et le tunnel doit être lancé avec `--profile tunnel`.
 - **Le bot n'apparaît pas dans la liste des Activités** : vérifie *Enable Activities* et le *Root Mapping*, puis redémarre Discord.
 
-### 🚀 Crash à plusieurs et 🛍️ Boutique de skins
+### 🎰 L'app du casino (tous les jeux d'argent passent par là)
 
-L'Activity a trois onglets : **Plinko**, **Crash** et **Boutique**.
+Les jeux d'argent ne se jouent plus en commande dans le chat : `=gamble`, `=slots`, `=bj`, `=mines`, `=crash`, `=loto` et `=duel` répondent juste où trouver l'app. Tout le reste (work, give, bank, profil…) ne change pas.
 
-- **Crash** : une seule fusée pour tout le vocal. 8 s de compte à rebours pour miser (avec encaissement auto en option), puis chacun encaisse quand il veut (bouton ou Espace). Les encaissements des potes s'affichent sur la courbe. Même maths que `=crash` (~3 % de crash instantané). Une mise peut être annulée tant que la fusée n'a pas décollé.
-- **Boutique** : skins purement cosmétiques (billes, traînées, tables, cadres d'avatar), du commun (2 500) au légendaire (150 000). L'argent des achats part à la banque du slip. Certains skins ne s'achètent pas : ils tombent des coffres (`=ouvrir`, 3 à 8 % de chances selon le coffre). Les skins équipés sont visibles par tout le vocal.
-- `=coffres` liste aussi les skins possédés.
+- **Casino** : Plinko, Crash (une fusée pour tout le vocal), Roulette, Slots (jackpot progressif), Blackjack, Mines, Loto (tirage à 21h) et Duel pierre-feuille-ciseaux entre deux joueurs de l'app. On ne tape que la mise, tout le reste se fait avec des boutons.
+- **Centre des paris** (colonne de gauche) : tout le monde voit tous les paris en deux temps, d'abord la mise puis le résultat. Plus la mise est grosse, plus la carte est grande. Le résultat rayonne en vert ou en rouge, plus fort quand la somme est grosse. Un tapis de plus de 1 000 illumine l'écran de tout le monde, une mise ≥ 2 000 gagnée notifie tout le monde avec le GIF perso du gagnant, et les grosses pertes ont droit à des 🤣.
+- **#bot** : chaque résultat de mise ≥ 500 y est posté, GIF perso compris.
+- **#daily** : récap du jour à 23h55 (rois du jour, gros perdants, plus gros gain et plus grosse perte par jeu, le plus accro). `=recap` pour l'envoyer tout de suite.
+- **Work** : boutons Work, Gamblework et Mine, chacun cliquable *n* fois par minute (*n* = nombre d'esclaves, 1 minimum). Un clic rapporte une petite part d'un vrai `=work`. Un « ! » apparaît sur l'onglet quand un clic est dispo. `=w`, `=gw` et `=m` marchent toujours dans le chat.
+- **Carte** : un quartier avec une maison fixe par membre (20 places), sa pp et son nom au-dessus, ses caves dessinées en dessous. Plus on a de RB, plus la maison est grande (+10 % max à 10 000) et plus elle brille. `=initmap` place d'un coup les maisons des membres déjà connus, et les nouveaux en reçoivent une en ouvrant l'app.
+- **Profils** : clic sur n'importe quelle pp pour voir le profil complet (image, badges, stats, niveau…).
+- **Boutique** : cadres d'avatar à 500 RB (décorations, drapeaux, anneaux), dont certains ne tombent que des coffres, et GIF de victoire perso à 1 000 RB (lien Tenor ou Giphy). Les anciens skins de billes, traînées et tables ont été remboursés automatiquement.
+
+Salons : le bot cherche les salons nommés `bot` et `daily`, ou prend `BOT_CHANNEL_ID` et `DAILY_CHANNEL_ID` dans le `.env`.
 
 ### Images de l'Activity (carte dans la liste des Activités)
 
