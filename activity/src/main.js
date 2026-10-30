@@ -15,6 +15,7 @@ import { WorkView } from './views/work.js';
 import { MapView } from './views/map.js';
 import { ShopView } from './views/shop.js';
 import { openProfile } from './views/profile.js';
+import { icon } from './icons.js';
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Math.trunc(Number(n) || 0).toLocaleString('fr-FR').replace(/ | /g, ' ');
@@ -766,12 +767,18 @@ $('auto').addEventListener('click', (e) => {
     if (b.id === 'stop') return stopAuto();
     startAuto(Number(b.dataset.n));
 });
-$('mute').addEventListener('click', () => {
-    const m = sound.toggle();
-    $('mute').textContent = m ? '🔇' : '🔊';
+const setMuteIcon = (m) => {
+    $('mute').innerHTML = icon(m ? 'mute' : 'volume', 18);
     $('mute').setAttribute('aria-label', m ? 'Remettre le son' : 'Couper le son');
-});
-$('mute').textContent = sound.muted ? '🔇' : '🔊';
+};
+$('mute').addEventListener('click', () => setMuteIcon(sound.toggle()));
+setMuteIcon(sound.muted);
+// icones SVG dans la navigation (pas d'emojis en guise d'icones)
+const NAV_ICONS = { casino: 'casino', work: 'pickaxe', map: 'map', shop: 'bag', plinko: 'target', crash: 'rocket', roulette: 'roulette', slots: 'slots', blackjack: 'cards', mines: 'bomb', loto: 'ticket', duel: 'swords' };
+for (const b of document.querySelectorAll('[data-page], #games [data-game]')) {
+    const k = b.dataset.page || b.dataset.game;
+    if (NAV_ICONS[k] && b.tagName === 'BUTTON') b.insertAdjacentHTML('afterbegin', icon(NAV_ICONS[k], 16));
+}
 $('bigwin').addEventListener('click', closeBigWin);
 
 let lastKey = 0;

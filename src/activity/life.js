@@ -34,7 +34,14 @@ function recent(id, kind) {
 async function workState(id) {
     const p = await db.getProfile(id);
     const n = Math.max(1, p.slavecount);
-    const out = { n, slaves: p.slavecount, kinds: {} };
+    const m = await boost.mult();
+    // gain moyen d'un clic (affiche a cote de chaque bouton)
+    const est = {
+        work: ((WORK_BASE + WORK_PER_SLAVE * p.slavecount) * m) / (30 * n),
+        gw: (62.5 * m) / (30 * n),
+        mine: (5.7 * m) / n,
+    };
+    const out = { n, slaves: p.slavecount, est, boost: m, kinds: {} };
     for (const kind of ['work', 'gw', 'mine']) {
         const list = recent(id, kind);
         out.kinds[kind] = { left: Math.max(0, n - list.length), next: list.length >= n ? list[0] + WINDOW : 0 };

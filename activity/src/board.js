@@ -530,7 +530,7 @@ export class Board {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const fontSize = this.mini ? Math.min(9, bw * 0.34) : Math.max(9, Math.min(15, bw * (rows === 16 ? 0.3 : 0.32)));
-        ctx.font = `700 ${fontSize}px Bricolage, system-ui, sans-serif`;
+        ctx.font = `600 ${fontSize}px Bricolage, system-ui, sans-serif`;
         const radius = this.mini ? 3 : 7;
         for (let k = 0; k <= rows; k++) {
             const x = this.bucketX(k);
@@ -634,7 +634,7 @@ export class Board {
 
     drawLabel(b) {
         const { ctx } = this;
-        ctx.font = '700 11px Bricolage, system-ui, sans-serif';
+        ctx.font = '600 12px Bricolage, system-ui, sans-serif';
         const w = ctx.measureText(b.label).width + 10;
         const y = b.y - this.ballR * 1.12 - 13;
         ctx.fillStyle = 'rgba(20, 4, 8, 0.78)';

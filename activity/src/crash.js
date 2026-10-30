@@ -452,7 +452,7 @@ export class CrashView {
         ctx.strokeStyle = 'rgba(247, 235, 215, 0.12)';
         ctx.fillStyle = 'rgba(247, 235, 215, 0.45)';
         ctx.lineWidth = 1;
-        ctx.font = '600 11px Bricolage, system-ui, sans-serif';
+        ctx.font = '600 12px Bricolage, system-ui, sans-serif';
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
         for (const m of niceSteps(sc.mMax)) {
@@ -523,7 +523,7 @@ export class CrashView {
                     ctx.restore();
                 }
                 ctx.fillStyle = c;
-                ctx.font = '800 11px Bricolage, system-ui, sans-serif';
+                ctx.font = '600 12px Bricolage, system-ui, sans-serif';
                 ctx.textBaseline = 'bottom';
                 ctx.fillText(`${b.cashed.toFixed(2)}×`, p.x, p.y - 32);
                 ctx.fillStyle = withAlpha(c, 0.9);
