@@ -5,7 +5,7 @@ const db = require('../db');
 const WORK_BASE = 50;
 const WORK_PER_SLAVE = 25;
 const FOREMAN_EXTRA = 20; // par esclave, en plus, une fois le contremaitre achete
-const FOREMAN_PRICE = 100_000;
+const FOREMAN_PRICE = 75_000;
 const SLOT_MS = 30 * 60 * 1000;
 const GW_AVG = 62.5;
 
@@ -13,6 +13,15 @@ const GW_AVG = 62.5;
 function workAmount(slaves, { foreman = false, mult = 1 } = {}) {
     const per = WORK_PER_SLAVE + (foreman ? FOREMAN_EXTRA : 0);
     return (WORK_BASE + per * Math.max(0, Math.trunc(Number(slaves) || 0))) * mult;
+}
+
+/** bouton tycoon : avant, apres, et en combien de creneaux le bonus rembourse le prix */
+function foremanOffer(slaves) {
+    const before = workAmount(slaves);
+    const after = workAmount(slaves, { foreman: true });
+    const delta = after - before;
+    const slots = delta > 0 ? Math.ceil(FOREMAN_PRICE / delta) : null;
+    return { before, after, delta, slots, hours: slots == null ? null : slots / 2 };
 }
 
 const slotEnd = (now = Date.now()) => Math.ceil((now + 1) / SLOT_MS) * SLOT_MS;
@@ -79,5 +88,5 @@ async function peek(userId, kind) {
 
 module.exports = {
     WORK_BASE, WORK_PER_SLAVE, FOREMAN_EXTRA, FOREMAN_PRICE, SLOT_MS, GW_AVG,
-    workAmount, slotEnd, sliceOf, claim, peek,
+    workAmount, foremanOffer, slotEnd, sliceOf, claim, peek,
 };
