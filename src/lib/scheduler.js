@@ -10,6 +10,7 @@ const announce = require('./announce');
 const loto = require('./loto');
 const { payWeekly } = require('../commands/loot');
 const sports = require('./sports');
+const upkeep = require('./upkeep');
 
 const DAILY_CD = 20 * 3600 * 1000;
 const STREAK_WARN = 40 * 3600 * 1000; // le streak saute a 48h : on previent a 40h
@@ -123,6 +124,8 @@ function start(client) {
     setInterval(safe('saison', () => weeklyTick(client)), 60_000).unref();
     setInterval(safe('sport', () => sports.tick(client)), 60_000).unref();
     setInterval(safe('recap', () => recapTick(client)), 60_000).unref();
+    setInterval(safe('entretien', () => upkeep.tick()), 60_000).unref();
+    safe('entretien', () => upkeep.tick())();
     safe('happy', () => happyTick())();
     safe('sport', () => sports.tick(client))();
 }

@@ -49,12 +49,21 @@ const refund = (ctx, bet) => eco.addRb(ctx.user.id, bet);
  * Regle une partie. payout = ce que le joueur recupere (mise comprise, 0 si perdu).
  * Retourne { net, bal }
  */
-async function settle(ctx, bet, payout) {
+async function settle(ctx, bet, payout, onceKey = null) {
     const userId = ctx.user.id;
     let received = 0;
     let cut = 0;
     let debt = 0;
+    let skipped = false;
     await db.tx(async (conn) => {
+        // une manche Crash reprise au boot ne paie pas deux fois
+        if (onceKey) {
+            const res = await db.exec('INSERT IGNORE INTO crash_paid (k) VALUES (?)', [onceKey], conn);
+            if (!res.affectedRows) {
+                skipped = true;
+                return;
+            }
+        }
         if (payout > 0) {
             const pay = await eco.addRb(userId, payout, conn);
             received = pay.net;
@@ -74,6 +83,7 @@ async function settle(ctx, bet, payout) {
             if (bet > payout) await eco.toCasino(bet - payout, conn);
         }
     });
+    if (skipped) return { skipped: true, net: 0, bal: await eco.balance(userId), cut: 0, debt: 0 };
     const net = received - bet;
     if (net !== 0) await progress.streak(userId, net > 0);
     // saison de la semaine

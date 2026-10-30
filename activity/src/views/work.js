@@ -4,9 +4,9 @@ import { el, fmt } from '../ui.js';
 import { icon } from '../icons.js';
 
 const KINDS = {
-    work: { label: 'Work', verb: 'Travailler', icon: 'briefcase', hint: 'Salaire fixe + bonus par esclave' },
-    gw: { label: 'Gamblework', verb: 'Parier', icon: 'dice', hint: 'Au hasard : de rien à beaucoup' },
-    mine: { label: 'Mine', verb: 'Miner', icon: 'gem', hint: 'Pierre, or, diamant… ou roknit' },
+    work: { label: 'Work', verb: 'Travailler', icon: 'briefcase', hint: 'Morceaux du salaire de =work' },
+    gw: { label: 'Gamblework', verb: 'Parier', icon: 'dice', hint: 'Morceaux du =gw de la demi-heure' },
+    mine: { label: 'Mine', verb: 'Miner', icon: 'gem', hint: 'Une pioche par minute, partagée avec =mine' },
 };
 const FOUND = { pierre: 'pierre', or: 'or', diamant: 'diamant', roknit: 'roknit' };
 const ORE = { pierre: '#a1958c', or: '#ffd76a', diamant: '#7fe8ff', roknit: '#ff8fd0' };
@@ -31,7 +31,7 @@ export class WorkView {
         };
         page.append(
             el('header.wk-head', {},
-                el('div', {}, el('h2', { text: 'Work' }), el('p', { text: 'Fais bosser tes esclaves. Plus tu en as, plus tu peux cliquer.' }))),
+                el('div', {}, el('h2', { text: 'Work' }), el('p', { text: 'Les clics prennent le même salaire que =work et =gw. La mine est la même pioche que =mine, une fois par minute.' }))),
             el('div.wk-kpis', {}, kpi('slaves', 'Esclaves', 'users'), kpi('rate', 'Clics / min par action', 'zap'), kpi('session', 'Gagné cette session', 'coins'), kpi('next', 'Prochain clic', 'timer')),
         );
 
@@ -114,19 +114,21 @@ export class WorkView {
             const s = this.state.kinds[k];
             const left = this.left(k);
             const r = this.rows[k];
+            const cap = s.cap || n;
+            const windowMs = s.windowMs || 60000;
             r.btn.disabled = left <= 0;
             r.row.classList.toggle('ready', left > 0);
-            // jauge : une case par clic de la minute
-            if (r.meter.children.length !== Math.min(n, 30)) r.meter.replaceChildren(...Array.from({ length: Math.min(n, 30) }, () => el('i')));
+            // jauge : une case par clic de la fenetre
+            if (r.meter.children.length !== Math.min(cap, 30)) r.meter.replaceChildren(...Array.from({ length: Math.min(cap, 30) }, () => el('i')));
             [...r.meter.children].forEach((c, i) => c.classList.toggle('on', i < left));
             if (left > 0) {
-                r.status.textContent = `${left}/${n} dispo`;
+                r.status.textContent = `${left}/${cap} dispo`;
                 r.bar.style.transform = 'scaleX(1)';
             } else {
-                const wait = Math.max(0, s.next - Date.now());
+                const wait = Math.max(0, (s.next || 0) - Date.now());
                 soonest = Math.min(soonest, wait);
-                r.status.textContent = `recharge ${Math.ceil(wait / 1000)} s`;
-                r.bar.style.transform = `scaleX(${1 - wait / 60000})`;
+                r.status.textContent = s.note || `recharge ${Math.ceil(wait / 1000)} s`;
+                r.bar.style.transform = `scaleX(${Math.max(0, Math.min(1, 1 - wait / windowMs))})`;
             }
             if (left > 0) soonest = 0;
         }

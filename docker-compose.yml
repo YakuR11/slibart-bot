@@ -41,5 +41,31 @@ services:
     depends_on:
       - bot
 
+  # Sauvegarde quotidienne de la base slip. Les fichiers sont dans ./backups (7 derniers jours).
+  backup:
+    image: mariadb:11
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-slip}
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        umask 077
+        while true; do
+          printf '[client]\nuser=root\npassword=%s\nhost=db\n' "$$DB_PASSWORD" > /tmp/client.cnf
+          stamp=$$(date +%Y%m%d-%H%M)
+          mariadb-dump --defaults-extra-file=/tmp/client.cnf --single-transaction "$$DB_NAME" > "/backups/slip-$$stamp.sql"
+          rm -f /tmp/client.cnf
+          ls -1t /backups/slip-*.sql 2>/dev/null | sed -n '8,$$p' | while read -r old; do rm -f "$$old"; done
+          sleep 86400
+        done
+
 volumes:
   db-data:

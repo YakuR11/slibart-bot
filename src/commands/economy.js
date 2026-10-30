@@ -8,6 +8,8 @@ const progress = require('../lib/progress');
 const boost = require('../lib/boost');
 const inv = require('../lib/inventory');
 const credit = require('../lib/credit');
+const wages = require('../lib/wages');
+const upkeep = require('../lib/upkeep');
 
 const happyTag = (m) => (m > 1 ? ' · 🔥 **HAPPY HOUR x2**' : '');
 const ui = require('../lib/ui');
@@ -16,9 +18,8 @@ const RB = () => config.rbEmoji;
 const C = config.content;
 
 // --- reglages du jeu (modifiables ici) ---
-const WORK_BASE = 50;
-const WORK_PER_SLAVE = 25;
-const SLOT_MS = 30 * 60 * 1000; // =work et =gw : dispo a chaque demi-heure pile
+const WORK_BASE = wages.WORK_BASE;
+const WORK_PER_SLAVE = wages.WORK_PER_SLAVE;
 const DAILY_BASE = 200;
 const DAILY_STREAK_BONUS = 25; // par jour de streak
 const DAILY_STREAK_MAX = 10;
@@ -47,9 +48,6 @@ function slaveCost(owned, qty, server) {
 const MINE_CD = 60 * 1000;
 const LOCK_PRICE = 600;
 
-const nextSlot = () => Math.ceil((Date.now() + 1) / SLOT_MS) * SLOT_MS;
-const hhmm = (ts) => new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
-
 const serverSlaves = async (conn = db.pool) => {
     const [[{ total }]] = await conn.query('SELECT COALESCE(SUM(slavecount), 0) AS total FROM profile');
     return Number(total);
@@ -67,7 +65,8 @@ async function shopEmbed(ctx) {
             `Tu as **${p.slavecount}** esclave(s), **${p.cavecount}** cave(s) · **${fmt(p.rb)}** ${RB()}\n\n` +
             `🛠️ **Esclave** · \`${config.prefix}buy slave [nb|max]\`\n` +
             `> Prochain : **${fmt(next)}** ${RB()} · les 5 prochains : ${fmt(next5)}\n` +
-            `> +${WORK_PER_SLAVE} ${RB()} par \`${config.prefix}work\` · +15% de prix à chaque esclave\n` +
+            `> +${WORK_PER_SLAVE} ${RB()} par \`${config.prefix}work\` · les clics de l'app puisent dans le même salaire\n` +
+            `> +15% de prix à chaque esclave\n` +
             `> Place libre : **${Math.max(0, room)}** (${SLAVES_PER_CAVE} par cave)\n\n` +
             `🏠 **Cave** · \`${config.prefix}buy cave\`\n` +
             `> Prochaine : **${fmt(cavePrice(p.cavecount))}** ${RB()} · puis ${fmt(cavePrice(p.cavecount + 1))}, ${fmt(cavePrice(p.cavecount + 2))}...\n` +
@@ -97,7 +96,9 @@ module.exports = [
                 .addFields(
                     { name: '👥 Esclaves', value: `${p.slavecount} / ${p.cavecount * SLAVES_PER_CAVE}`, inline: true },
                     { name: '🏠 Caves', value: `${p.cavecount} · prochaine ${fmt(cavePrice(p.cavecount))}`, inline: true },
-                    { name: '💼 Revenu =work', value: `${fmt(WORK_BASE + WORK_PER_SLAVE * p.slavecount)} ${RB()}`, inline: true },
+                    { name: '💼 Revenu =work', value: `${fmt(WORK_BASE + WORK_PER_SLAVE * p.slavecount)} ${RB()} / 30 min`, inline: true },
+                    { name: '🏠 Entretien', value: p.cavecount ? `${fmt(upkeep.caveFee(p.cavecount))} ${RB()} / jour` : 'pas de cave', inline: true },
+                    { name: '💸 Taxe', value: `1 % au-dessus de ${fmt(upkeep.TAX_FLOOR)} (max ${fmt(upkeep.TAX_CAP)} / jour)`, inline: true },
                     { name: '📈 Gains casino', value: `${fmt(p.wincount)} ${RB()}`, inline: true },
                     { name: '📉 Pertes casino', value: `${fmt(p.pertecount)} ${RB()}`, inline: true },
                     { name: '⚖️ Bilan', value: `${net >= 0 ? '+' : '-'}${fmt(Math.abs(net))} ${RB()}`, inline: true },
@@ -112,19 +113,21 @@ module.exports = [
         category: 'eco',
         description: `Travaille pour gagner des RB (toutes les 30 min)`,
         async run(ctx) {
-            const slot = nextSlot();
-            const left = await cd.take(ctx.user.id, 'work', slot, { absolute: true });
-            if (left) return ctx.reply(`⏳ **${ctx.displayName}**, tu pourras retravailler ${ui.ts(Date.now() + left)}.`);
             const p = await db.getProfile(ctx.user.id);
-            const bonus = WORK_PER_SLAVE * p.slavecount;
             const m = await boost.mult();
-            const total = (WORK_BASE + bonus) * m;
-            const pay = await eco.addRb(ctx.user.id, total);
+            const bonus = WORK_PER_SLAVE * p.slavecount;
+            const pot = (WORK_BASE + bonus) * m;
+            const got = await wages.claim(ctx.user.id, 'work', pot, pot, { all: true });
+            if (got.paid <= 0) {
+                return ctx.reply(`⏳ **${ctx.displayName}**, salaire déjà pris (chat ou app). Prochain ${ui.ts(got.slotEnd)}.`);
+            }
+            const pay = await eco.addRb(ctx.user.id, got.paid);
+            const partial = got.already ? ` · ${fmt(got.already)} déjà pris dans l'app` : '';
             await ctx.reply(
                 `**+${fmt(pay.net)}** ${RB()} pour **${ctx.displayName}** !${happyTag(m)}${credit.note(pay.cut, pay.debt)}\n` +
-                `-# 💼 Travail ${WORK_BASE}${bonus ? ` · 📜 Bonus esclaves +${fmt(bonus)}` : ''} · prochain ${ui.ts(slot)}`,
+                `-# 💼 Travail ${WORK_BASE}${bonus ? ` · 📜 Bonus esclaves +${fmt(bonus)}` : ''}${partial} · prochain ${ui.ts(got.slotEnd)}`,
             );
-            await progress.track(ctx, { work: 1 });
+            if (got.fresh) await progress.track(ctx, { work: 1 });
         },
     },
     {
@@ -133,16 +136,16 @@ module.exports = [
         category: 'eco',
         description: 'Travail au hasard : 25 a 100 RB (toutes les 30 min)',
         async run(ctx) {
-            const slot = nextSlot();
-            const left = await cd.take(ctx.user.id, 'gw', slot, { absolute: true });
-            if (left) return ctx.reply(`⏳ **${ctx.displayName}**, prochain gw ${ui.ts(Date.now() + left)}.`);
             const m = await boost.mult();
             const base = randInt(25, 100);
-            const gain = base * m;
-            const pay = await eco.addRb(ctx.user.id, gain);
-            const mood = base >= 90 ? '🤑' : base <= 35 ? '😐' : '💸';
-            await ctx.reply(`${mood} **+${fmt(pay.net)}** ${RB()} pour **${ctx.displayName}** !${happyTag(m)}${credit.note(pay.cut, pay.debt)}\n-# prochain gw ${ui.ts(slot)}`);
-            await progress.track(ctx, { gw: 1 });
+            const got = await wages.claim(ctx.user.id, 'gw', base * m, base * m, { all: true, lockPot: true });
+            if (got.paid <= 0) return ctx.reply(`⏳ **${ctx.displayName}**, prochain gw ${ui.ts(got.slotEnd)}.`);
+            const pay = await eco.addRb(ctx.user.id, got.paid);
+            const shown = got.already ? got.paid : base * m;
+            const mood = shown >= 90 * m ? '🤑' : shown <= 35 * m ? '😐' : '💸';
+            const partial = got.already ? ` · ${fmt(got.already)} déjà cliqués dans l'app` : '';
+            await ctx.reply(`${mood} **+${fmt(pay.net)}** ${RB()} pour **${ctx.displayName}** !${happyTag(m)}${credit.note(pay.cut, pay.debt)}\n-# prochain gw ${ui.ts(got.slotEnd)}${partial}`);
+            if (got.fresh) await progress.track(ctx, { gw: 1 });
         },
     },
     {

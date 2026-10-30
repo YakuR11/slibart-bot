@@ -316,6 +316,82 @@ async function applyElo(ev, slug) {
 const validMatch = (ev) => ev?.type === 'match' && ev.match?.teams?.length === 2
     && ev.match.teams.every((t) => t?.name && !/tbd/i.test(t.name) && t.code !== 'TBD');
 
+function rankedTeams(body) {
+    let best = [];
+    const stages = body?.data?.standings?.[0]?.stages || [];
+    for (const stage of stages) {
+        for (const sec of stage.sections || []) {
+            const rows = [];
+            for (const row of sec.rankings || []) {
+                for (const team of row.teams || []) {
+                    if (team?.name) rows.push({ name: team.name, code: team.code || null, rank: Number(row.ordinal) || rows.length + 1 });
+                }
+            }
+            if (rows.length > best.length) best = rows;
+        }
+    }
+    return best;
+}
+
+/**
+ * Une fois : le classement public du tournoi en cours (ou du dernier termine)
+ * ecarte les equipes. Ensuite seuls les resultats bougent l'Elo.
+ * On ne touche pas a une equipe qui a deja 5 matchs : son historique compte plus qu'un seed.
+ */
+function newestFirst(tourneys) {
+    return [...tourneys].sort((a, b) => String(b.startDate || b.endDate || '').localeCompare(String(a.startDate || a.endDate || '')));
+}
+
+async function seedFromStandings(leagues) {
+    for (const lg of leagues) {
+        const flag = `lol_elo_seed:${lg.slug || lg.id}`;
+        if ((await db.getSetting(flag)) === 'v1') continue;
+        let tourneys = [];
+        try {
+            const body = await lolGet(`/getTournamentsForLeague?hl=en-US&leagueId=${lg.id}`);
+            tourneys = newestFirst(body?.data?.leagues?.[0]?.tournaments || []);
+        } catch (e) {
+            log.warn(`[sport] tournois ${lg.name} : ${e.message}`);
+            continue;
+        }
+        let teams = [];
+        let failed = false;
+        for (const t of tourneys) {
+            try {
+                const body = await lolGet(`/getStandings?hl=en-US&tournamentId=${t.id}`);
+                teams = rankedTeams(body);
+            } catch (e) {
+                log.warn(`[sport] classement ${lg.name} : ${e.message}`);
+                failed = true;
+                continue;
+            }
+            if (teams.length >= 4) break;
+        }
+        if (teams.length < 4) {
+            if (!failed) log.info(`[sport] seed Elo ${lg.name} : pas encore de classement, on reessaiera`);
+            continue;
+        }
+        const prior = PRIOR[lg.slug] ?? ELO_DEFAULT;
+        const n = teams.length;
+        let seeded = 0;
+        for (const team of teams) {
+            const spread = (Math.max(1, team.rank) - 1) / Math.max(1, n - 1);
+            const elo = Math.round(prior + 180 * (1 - 2 * spread));
+            const [existing] = await db.q('SELECT games FROM lol_elo WHERE team = ?', [team.name]);
+            if (!existing) {
+                await db.exec('INSERT INTO lol_elo (team, code, rating, games) VALUES (?, ?, ?, 0)', [team.name, team.code, elo]);
+                seeded++;
+            } else if (Number(existing.games) < 5) {
+                await db.exec('UPDATE lol_elo SET rating = ?, code = COALESCE(code, ?) WHERE team = ?', [elo, team.code, team.name]);
+                seeded++;
+            }
+        }
+        if (!failed) await db.setSetting(flag, 'v1');
+        else log.warn(`[sport] seed Elo ${lg.name} incomplet, on reessaiera`);
+        log.info(`[sport] seed Elo ${lg.name} : ${teams.length} equipes, ${seeded} ecrites`);
+    }
+}
+
 /** Premier demarrage : on rejoue l'historique de toutes les grosses ligues dans l'ordre */
 async function bootstrapElo(leagues) {
     if ((await db.getSetting('lol_elo_boot')) === 'v1') return;
@@ -346,6 +422,7 @@ async function bootstrapElo(leagues) {
 
 async function syncLol() {
     const { list, rating: ratingLeagues } = await lolLeagues();
+    await seedFromStandings(ratingLeagues);
     await bootstrapElo(ratingLeagues);
     const betIds = new Set(list.map((l) => String(l.id)));
 

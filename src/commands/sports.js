@@ -345,3 +345,5 @@ module.exports = [
 ];
 
 module.exports.handleComponent = handleComponent;
+module.exports.placeTicket = placeTicket;
+module.exports.failText = failText;

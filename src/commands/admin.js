@@ -97,7 +97,7 @@ module.exports = [
                 if (u && !u.bot) ids.push(String(r.id_user));
             }
             const n = await require('../activity/life').initMap(ids);
-            await ctx.reply(`🏘️ ${n} maison(s) placée(s) sur la carte (20 places max). Les nouveaux en reçoivent une en ouvrant l'app.`);
+            await ctx.reply(`🏘️ ${n} maison(s) placée(s). Le quartier a 20 places : au-delà, plus de maison.`);
         },
     },
     {

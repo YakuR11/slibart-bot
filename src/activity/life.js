@@ -10,83 +10,114 @@ const skins = require('../lib/skins');
 const { fmt } = require('../lib/utils');
 
 // ===========================================================================
-// WORK : n clics par minute et par bouton (n = nombre d'esclaves, 1 minimum).
-// Un clic = une petite part d'un vrai =work : en cliquant sans arret pendant 30 min
-// on gagne a peu pres un =work (ou un =gw, ou une minute de =mine).
+// WORK : les clics remplacent =work / =gw, ils ne s'y ajoutent pas.
+// 30 min de clics = un salaire. La mine de l'app est la meme pioche que =mine (1 par minute).
+// Les quotas sont en base : un redemarrage ne les remet pas a zero.
 // ===========================================================================
-const WORK_BASE = 50;
-const WORK_PER_SLAVE = 25;
 const WINDOW = 60_000;
-const clicks = new Map(); // `${id}:${kind}` -> [timestamps]
+const MINE_CD = 60_000;
+const MINE_EV = 5.7;
 
-/** arrondi aleatoire : 2,3 -> 2 (70 %) ou 3 (30 %), l'esperance reste juste */
-const sround = (x) => Math.floor(x) + (Math.random() < x - Math.floor(x) ? 1 : 0);
 const randInt = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 
-function recent(id, kind) {
-    const k = `${id}:${kind}`;
-    const now = Date.now();
-    const list = (clicks.get(k) || []).filter((t) => now - t < WINDOW);
-    clicks.set(k, list);
-    return list;
+const wages = require('../lib/wages');
+const cd = require('../lib/cooldowns');
+
+function kindView(cap, windowLeft, moneyLeft, slotEnd, windowMs) {
+    if (moneyLeft <= 0) return { left: 0, next: slotEnd, cap, windowMs: Math.max(1000, slotEnd - Date.now()), note: 'salaire déjà pris' };
+    return { left: windowLeft.left, next: windowLeft.next, cap, windowMs, note: null };
 }
 
 async function workState(id) {
     const p = await db.getProfile(id);
     const n = Math.max(1, p.slavecount);
     const m = await boost.mult();
-    // gain moyen d'un clic (affiche a cote de chaque bouton)
+    const workPot = (wages.WORK_BASE + wages.WORK_PER_SLAVE * p.slavecount) * m;
+    const gwPot = Math.round(wages.GW_AVG * m);
+    const [workSeen, gwSeen, workWin, gwWin, mineLeft] = await Promise.all([
+        wages.peek(id, 'work'),
+        wages.peek(id, 'gw'),
+        cd.windowState(id, 'click:work', n, WINDOW),
+        cd.windowState(id, 'click:gw', n, WINDOW),
+        cd.remaining(id, 'mine'),
+    ]);
     const est = {
-        work: ((WORK_BASE + WORK_PER_SLAVE * p.slavecount) * m) / (30 * n),
-        gw: (62.5 * m) / (30 * n),
-        mine: (5.7 * m) / n,
+        work: wages.sliceOf(workSeen?.pot || workPot, n),
+        gw: wages.sliceOf(gwSeen?.pot || gwPot, n),
+        mine: MINE_EV * m,
     };
     const out = { n, slaves: p.slavecount, est, boost: m, kinds: {} };
-    for (const kind of ['work', 'gw', 'mine']) {
-        const list = recent(id, kind);
-        out.kinds[kind] = { left: Math.max(0, n - list.length), next: list.length >= n ? list[0] + WINDOW : 0 };
-    }
+    out.kinds.work = kindView(n, workWin, workSeen ? workSeen.left : workPot, workSeen?.slotEnd || wages.slotEnd(), WINDOW);
+    out.kinds.gw = kindView(n, gwWin, gwSeen ? gwSeen.left : gwPot, gwSeen?.slotEnd || wages.slotEnd(), WINDOW);
+    out.kinds.mine = {
+        left: mineLeft ? 0 : 1,
+        next: mineLeft ? Date.now() + mineLeft : 0,
+        cap: 1,
+        windowMs: MINE_CD,
+        note: null,
+    };
     return out;
+}
+
+async function paySlice(player, kind, potNow, lockPot) {
+    const id = player.id;
+    const p = await db.getProfile(id);
+    const n = Math.max(1, p.slavecount);
+    const seen = await wages.peek(id, kind);
+    const pot = seen?.pot || potNow;
+    if (seen && seen.left <= 0) return { error: 'Salaire déjà pris pour cette demi-heure.', ...(await workState(id)) };
+    const gate = await cd.window(id, `click:${kind}`, n, WINDOW);
+    if (!gate.ok) return { error: 'Repose-toi un peu…', next: Date.now() + gate.resetIn, ...(await workState(id)) };
+    const slice = wages.sliceOf(pot, n);
+    const got = await wages.claim(id, kind, potNow, slice, { lockPot });
+    if (got.paid <= 0) return { error: 'Salaire déjà pris pour cette demi-heure.', ...(await workState(id)) };
+    const pay = await eco.addRb(id, got.paid);
+    if (got.fresh) {
+        progress.track(
+            { user: { id, username: player.name }, channel: null, displayName: player.name },
+            kind === 'gw' ? { gw: 1 } : { work: 1 },
+        ).catch(() => {});
+    }
+    return { ok: true, kind, gain: pay.net, cut: pay.cut, what: null, chest: false, balance: await eco.balance(id), ...(await workState(id)) };
 }
 
 async function workClick(player, kind) {
     if (!['work', 'gw', 'mine'].includes(kind)) return { error: 'Action inconnue.' };
     const id = player.id;
-    const p = await db.getProfile(id);
-    const n = Math.max(1, p.slavecount);
-    const list = recent(id, kind);
-    if (list.length >= n) return { error: 'Repose-toi un peu…', next: list[0] + WINDOW, ...(await workState(id)) };
-    list.push(Date.now());
     const m = await boost.mult();
-    let gain = 0;
-    let what = null;
-    let chest = false;
     if (kind === 'work') {
-        gain = sround(((WORK_BASE + WORK_PER_SLAVE * p.slavecount) * m) / (30 * n));
-    } else if (kind === 'gw') {
-        gain = sround((randInt(25, 100) * m) / (30 * n));
-    } else {
-        // memes chances que =mine, gains divises par n (n clics par minute au lieu d'un)
-        const r = Math.random() * 1000;
-        let g;
-        if (r < 1) { g = 1000; what = 'roknit'; }
-        else if (r < 11) { g = 100; what = 'diamant'; }
-        else if (r < 61) { g = randInt(10, 25); what = 'or'; }
-        else { g = randInt(1, 5); what = 'pierre'; }
-        gain = sround((g * m) / n);
-        if (Math.random() < 1 / (40 * n)) {
-            chest = true;
-            await inv.add(id, 'coffre');
-        }
-        if (gain) await eco.bump(id, { minecount: gain });
-        if (what === 'roknit') progress.track({ user: { id }, channel: null }, {}, { roknit: true }).catch(() => {});
+        const p = await db.getProfile(id);
+        const pot = (wages.WORK_BASE + wages.WORK_PER_SLAVE * p.slavecount) * m;
+        return paySlice(player, 'work', pot, false);
     }
+    if (kind === 'gw') {
+        return paySlice(player, 'gw', randInt(25, 100) * m, true);
+    }
+    // une pioche par minute, la meme que =mine (les clics ne s'ajoutent pas a la commande)
+    const left = await cd.take(id, 'mine', MINE_CD);
+    if (left) return { error: 'Ta pioche refroidit…', next: Date.now() + left, ...(await workState(id)) };
+    const r = Math.random() * 1000;
+    let gain;
+    let what;
+    if (r < 1) { gain = 1000; what = 'roknit'; }
+    else if (r < 11) { gain = 100; what = 'diamant'; }
+    else if (r < 61) { gain = randInt(10, 25); what = 'or'; }
+    else { gain = randInt(1, 5); what = 'pierre'; }
+    gain = Math.round(gain * m);
+    const chest = Math.random() < 1 / 40;
+    if (chest) await inv.add(id, 'coffre');
     const pay = gain ? await eco.addRb(id, gain) : { net: 0, cut: 0 };
+    if (gain) await eco.bump(id, { minecount: gain });
+    progress.track(
+        { user: { id, username: player.name }, channel: null, displayName: player.name },
+        { mine: 1 },
+        { roknit: what === 'roknit' },
+    ).catch(() => {});
     return { ok: true, kind, gain: pay.net, cut: pay.cut, what, chest, balance: await eco.balance(id), ...(await workState(id)) };
 }
 
 // ===========================================================================
-// CARTE : un petit quartier, une maison fixe par membre (20 places)
+// CARTE : un petit quartier, 20 maisons, pas une par membre
 // ===========================================================================
 const STREETS = [
     { name: 'Avenue 16 ans et 10 mois', a: [60, 150], b: [940, 150] },
