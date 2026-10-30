@@ -33,8 +33,14 @@ export class ParisView {
     }
 
     async show(on) {
+        this.visible = on;
         if (!on) return;
-        const r = await this.app.req('sports.list');
+        // au lancement la connexion temps reel peut ne pas etre encore ouverte : on reessaie en silence
+        let r = await this.app.req('sports.list');
+        for (let k = 0; k < 12 && r.error && this.visible; k++) {
+            await new Promise((ok) => setTimeout(ok, 800));
+            r = await this.app.req('sports.list');
+        }
         if (r.error) return this.app.toast(r.error, true);
         this.data = r;
         this.render();
