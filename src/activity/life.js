@@ -32,7 +32,7 @@ async function workState(id) {
     const p = await db.getProfile(id);
     const n = Math.max(1, p.slavecount);
     const m = await boost.mult();
-    const workPot = (wages.WORK_BASE + wages.WORK_PER_SLAVE * p.slavecount) * m;
+    const workPot = wages.workAmount(p.slavecount, { foreman: p.foreman, mult: m });
     const gwPot = Math.round(wages.GW_AVG * m);
     const [workSeen, gwSeen, workWin, gwWin, mineLeft] = await Promise.all([
         wages.peek(id, 'work'),
@@ -46,7 +46,7 @@ async function workState(id) {
         gw: wages.sliceOf(gwSeen?.pot || gwPot, n),
         mine: MINE_EV * m,
     };
-    const out = { n, slaves: p.slavecount, est, boost: m, kinds: {} };
+    const out = { n, slaves: p.slavecount, foreman: p.foreman ? 1 : 0, est, boost: m, kinds: {} };
     out.kinds.work = kindView(n, workWin, workSeen ? workSeen.left : workPot, workSeen?.slotEnd || wages.slotEnd(), WINDOW);
     out.kinds.gw = kindView(n, gwWin, gwSeen ? gwSeen.left : gwPot, gwSeen?.slotEnd || wages.slotEnd(), WINDOW);
     out.kinds.mine = {
@@ -87,7 +87,7 @@ async function workClick(player, kind) {
     const m = await boost.mult();
     if (kind === 'work') {
         const p = await db.getProfile(id);
-        const pot = (wages.WORK_BASE + wages.WORK_PER_SLAVE * p.slavecount) * m;
+        const pot = wages.workAmount(p.slavecount, { foreman: p.foreman, mult: m });
         return paySlice(player, 'work', pot, false);
     }
     if (kind === 'gw') {

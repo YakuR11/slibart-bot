@@ -54,6 +54,7 @@ const COUNTERS = [
     'rb', 'wacount', 'insultcount', 'slavecount', 'cavecount', 'pertecount',
     'wincount', 'gamblecount', 'minecount', 'daily_last', 'daily_streak',
     'xp', 'level', 'remind', 'duelwins', 'maxwin', 'winstreak', 'bestwinstreak', 'last_seen', 'debt',
+    'foreman',
 ];
 
 const PROFILE_EXTRA = {

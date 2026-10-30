@@ -48,13 +48,14 @@ export class WorkView {
             const est = el('span.wk-est', { text: '' });
             const status = el('span.wk-status', { text: '' });
             const bar = el('i');
+            const hint = el('p', { text: v.hint });
             const btn = el('button.wk-go', { type: 'button', onclick: () => this.click(k) }, el('span', { text: v.verb }), html(icon('arrow', 16)));
             const row = el('article.wk-action', {},
                 el('div.wk-ic', {}, html(icon(v.icon, 22))),
-                el('div.wk-main', {}, el('h3', { text: v.label }), el('p', { text: v.hint })),
+                el('div.wk-main', {}, el('h3', { text: v.label }), hint),
                 btn,
                 el('div.wk-info', {}, el('div.wk-line', {}, est, status), meter, el('div.wk-cd', {}, bar)));
-            this.rows[k] = { row, btn, meter, est, status, bar };
+            this.rows[k] = { row, btn, meter, est, status, bar, hint };
             actions.append(row);
         }
 
@@ -88,6 +89,9 @@ export class WorkView {
         this.men.length = want;
         this.kpi.slaves.textContent = fmt(r.slaves);
         this.kpi.rate.textContent = `${r.n}`;
+        this.rows.work.hint.textContent = r.foreman
+            ? 'Le contremaître encaisse ce salaire tout seul'
+            : KINDS.work.hint;
         for (const k of Object.keys(KINDS)) {
             const e = r.est?.[k] || 0;
             this.rows[k].est.textContent = `≈ ${e >= 10 ? fmt(e) : e.toFixed(1).replace('.', ',')} RB par clic`;
