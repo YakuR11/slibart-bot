@@ -48,6 +48,15 @@ function slaveCost(owned, qty, server) {
 const MINE_CD = 60 * 1000;
 const LOCK_PRICE = 600;
 
+function foremanBlurb(p) {
+    const o = wages.foremanOffer(p.slavecount);
+    const head = `⏱️ **Contremaître** · \`${config.prefix}buy contremaitre\`\n> **${fmt(wages.FOREMAN_PRICE)}** ${RB()} · une fois${p.foreman ? ' · **en poste**' : ''}\n`;
+    if (p.foreman) return `${head}> Il ramasse **${fmt(o.after)}** ${RB()} / 30 min\n\n`;
+    if (!o.slots) return `${head}> Ramasse les **${fmt(o.before)}** ${RB()} tout seul. Prends des esclaves d'abord.\n\n`;
+    const when = o.hours >= 48 ? `${Math.round(o.hours / 24)} jours` : `${Math.round(o.hours)} h`;
+    return `${head}> Ramasse le \`${config.prefix}work\` tout seul\n> **${fmt(o.before)} → ${fmt(o.after)}** ${RB()} / 30 min (**+${fmt(o.delta)}**)\n> Remboursé en **${o.slots}** créneaux, environ **${when}**\n\n`;
+}
+
 const serverSlaves = async (conn = db.pool) => {
     const [[{ total }]] = await conn.query('SELECT COALESCE(SUM(slavecount), 0) AS total FROM profile');
     return Number(total);
@@ -71,13 +80,7 @@ async function shopEmbed(ctx) {
             `🏠 **Cave** · \`${config.prefix}buy cave\`\n` +
             `> Prochaine : **${fmt(cavePrice(p.cavecount))}** ${RB()} · puis ${fmt(cavePrice(p.cavecount + 1))}, ${fmt(cavePrice(p.cavecount + 2))}...\n` +
             `> Pas de limite · +70% de prix à chaque cave · 1 achat toutes les 1h30\n\n` +
-            `⏱️ **Contremaître** · \`${config.prefix}buy contremaitre\`\n` +
-            `> **${fmt(wages.FOREMAN_PRICE)}** ${RB()}, une seule fois${p.foreman ? ' · **déjà en poste**' : ''}\n` +
-            `> Il encaisse le \`${config.prefix}work\` tout seul, chaque demi-heure\n` +
-            `> Chaque esclave passe de +${WORK_PER_SLAVE} à **+${WORK_PER_SLAVE + wages.FOREMAN_EXTRA}** ${RB()} par créneau\n` +
-            `> Là, ça ferait **${fmt(wages.workAmount(p.slavecount, { foreman: true }))}** ${RB()} / 30 min` +
-            `${p.foreman ? '' : ` (aujourd'hui **${fmt(wages.workAmount(p.slavecount))}**)`}\n` +
-            `> Même pot que le chat et l'app : pas payé deux fois. Pas le \`gw\`, pas la mine\n\n` +
+            foremanBlurb(p) +
             `🔒 **Cadenas** · \`${config.prefix}buy cadenas [nb]\`\n` +
             `> **${fmt(LOCK_PRICE)}** ${RB()} · bloque une tentative de \`${config.prefix}rob\` contre toi`,
         );
@@ -294,15 +297,14 @@ module.exports = [
                     if (Number(p.rb) < price) return { err: `Il te faut **${fmt(price)}** ${RB()} (tu as ${fmt(p.rb)}).` };
                     const [upd] = await conn.query('UPDATE profile SET rb = rb - ?, foreman = 1 WHERE id_user = ? AND foreman = 0 AND rb >= ?', [price, ctx.user.id, price]);
                     if (!upd.affectedRows) return { err: 'Achat pas passé, réessaie.' };
-                    const rate = wages.workAmount(p.slavecount, { foreman: true });
-                    return { price, rate, slaves: Number(p.slavecount) };
+                    const offer = wages.foremanOffer(p.slavecount);
+                    return { price, offer };
                 });
                 if (result.err) return ctx.fail(result.err);
+                const o = result.offer;
                 return ctx.reply(
-                    `⏱️ **${ctx.displayName}** embauche un contremaître pour **${fmt(result.price)}** ${RB()}.\n` +
-                    `Il encaisse **${fmt(result.rate)}** ${RB()} toutes les 30 min` +
-                    `${result.slaves ? ` (${result.slaves} esclave${result.slaves > 1 ? 's' : ''} à +${WORK_PER_SLAVE + wages.FOREMAN_EXTRA})` : ''}, même si t'es pas là.\n` +
-                    `-# même pot que \`${config.prefix}work\` : pas payé deux fois`,
+                    `⏱️ **${ctx.displayName}** pose le contremaître pour **${fmt(result.price)}** ${RB()}.\n` +
+                    `**${fmt(o.before)} → ${fmt(o.after)}** ${RB()} / 30 min. Il ramasse même si t'es pas là.`,
                 );
             }
 
