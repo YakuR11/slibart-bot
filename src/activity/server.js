@@ -20,7 +20,7 @@ const skins = require('../lib/skins');
 const sportApp = require('./sports');
 
 const ROOT = path.join(__dirname, '..', '..', 'activity');
-const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4' };
 const SESSION_TTL = 12 * 3600 * 1000;
 
 const sessions = new Map(); // token -> { id, name, avatar, user, exp }
