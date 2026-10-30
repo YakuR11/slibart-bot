@@ -1492,3 +1492,147 @@ button.av-wrap { padding: 0; border: 0; background: none; line-height: 0; }
 }
 .icon-btn#music.off { opacity: 0.5; }
 .icon-btn[hidden] { display: none; }
+
+/* ===================================================================== */
+/* Empire (tycoon, modele dashboard) + barre d'objectif + tuto           */
+/* ===================================================================== */
+.goal {
+    display: grid; gap: 4px; min-width: 0; max-width: 260px; min-height: 44px; padding: 6px 12px;
+    border: 1px solid rgba(217, 164, 65, 0.35); border-radius: 10px; background: var(--lacquer-deep);
+    color: var(--cream-dim); font: inherit; font-size: 12px; text-align: left; cursor: pointer;
+    transition: border-color var(--t-ui) ease;
+}
+.goal[hidden] { display: none; }
+.goal:hover { border-color: var(--brass-hi); }
+.goal:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: 2px; }
+.goal-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.goal-bar { height: 4px; border-radius: 2px; background: rgba(247, 235, 215, 0.12); overflow: hidden; }
+.goal-bar i { display: block; height: 100%; background: var(--brass-hi); transform-origin: left; transform: scaleX(0); transition: transform 400ms ease-out; }
+.goal.ready { border-color: var(--win); color: var(--cream); }
+.goal.ready .goal-bar i { background: var(--win); }
+
+.fly-coin {
+    position: fixed; left: 0; top: 0; z-index: 70; width: 16px; height: 16px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle at 35% 30%, #fff3c4, #f3cf7a 45%, #b88424);
+    box-shadow: 0 0 0 1.5px #8f6420 inset;
+}
+.balance.hit { animation: bal-hit 320ms ease-out; }
+@keyframes bal-hit { 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+.page.em { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 16px; min-height: 0; overflow: auto; }
+.em-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.em-kpi {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: center;
+    padding: 12px 14px; border-radius: 14px; background: rgba(36, 7, 14, 0.72); border: 1px solid rgba(217, 164, 65, 0.22);
+}
+.em-kpi .ic { grid-row: span 3; color: var(--brass-hi); }
+.em-kpi-l { font-size: 12px; color: var(--cream-dim); }
+.em-kpi-v { font-size: 20px; font-weight: 600; color: var(--cream); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.em-kpi small { font-size: 12px; color: var(--cream-dim); }
+.em-body { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.em-col { display: grid; gap: 16px; min-width: 0; }
+.em-box { border-radius: 16px; background: rgba(36, 7, 14, 0.72); border: 1px solid rgba(217, 164, 65, 0.22); overflow: hidden; }
+.em-box > header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 12px 16px; border-bottom: 1px solid rgba(217, 164, 65, 0.16); }
+.em-box > header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.em-box > header span { font-size: 12px; color: var(--cream-dim); }
+.em-cards { display: grid; }
+.em-card {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "ic main buy" "info info info";
+    gap: 8px 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid rgba(217, 164, 65, 0.12);
+    transition: background var(--t-ui) ease, box-shadow var(--t-ui) ease;
+}
+.em-card:last-child { border-bottom: 0; }
+.em-card.can { background: rgba(143, 227, 161, 0.07); box-shadow: inset 3px 0 0 var(--win); }
+.em-card.done { opacity: 0.85; }
+.em-ic { grid-area: ic; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; background: rgba(217, 164, 65, 0.12); color: var(--brass-hi); }
+.em-card.can .em-ic { background: rgba(143, 227, 161, 0.16); color: var(--win); }
+.em-main { grid-area: main; min-width: 0; }
+.em-main h4 { margin: 0; font-size: 16px; font-weight: 600; }
+.em-main p { margin: 2px 0 0; font-size: 12px; color: var(--cream-dim); }
+.em-card .em-buy { grid-area: buy; }
+.em-buy { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.em-info { grid-area: info; display: grid; gap: 4px; }
+.em-line { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--cream-dim); font-variant-numeric: tabular-nums; }
+.em-line span:first-child { color: var(--brass-hi); }
+.em-bar { height: 4px; border-radius: 2px; background: rgba(247, 235, 215, 0.1); overflow: hidden; }
+.em-bar i { display: block; height: 100%; background: var(--brass-hi); transform-origin: left; transition: transform 400ms ease-out; }
+.em-card.can .em-bar i, .em-quests li.done .em-bar i { background: var(--win); }
+.em-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; min-width: 44px; padding: 0 14px;
+    border: 0; border-radius: 10px; background: var(--brass); color: var(--lacquer-deep); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: transform var(--t-press) ease-out, background var(--t-ui) ease, opacity var(--t-ui) ease;
+}
+.em-btn:hover:not(:disabled) { background: var(--brass-hi); }
+.em-btn:active:not(:disabled) { transform: translateY(2px); }
+.em-btn:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: 2px; }
+.em-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.em-btn.ghost { background: transparent; color: var(--cream); box-shadow: inset 0 0 0 1px rgba(217, 164, 65, 0.45); }
+.em-btn.ghost:hover:not(:disabled) { background: rgba(217, 164, 65, 0.12); }
+.em-card.can .em-btn:not(.ghost):not(:disabled) { background: var(--win); color: #0c2a14; }
+.em-owned { display: inline-flex; align-items: center; gap: 6px; color: var(--win); font-size: 14px; }
+.em-prestige { display: grid; gap: 10px; padding: 12px 16px; }
+.em-prestige.can { box-shadow: inset 3px 0 0 #b48cff; background: rgba(180, 140, 255, 0.08); }
+.em-prestige .em-buy { justify-content: flex-start; }
+.em-note { margin: 0; font-size: 14px; color: var(--cream-dim); }
+.em-warn { margin: 0; font-size: 14px; color: var(--loss); }
+.em-req { display: grid; gap: 4px; }
+.em-tasks, .em-quests, .em-top { list-style: none; margin: 0; padding: 0; }
+.em-tasks li { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid rgba(217, 164, 65, 0.12); font-size: 14px; }
+.em-tasks li:last-child, .em-quests li:last-child, .em-top li:last-child { border-bottom: 0; }
+.em-tasks code { font-size: 13px; color: var(--brass-hi); }
+.em-tasks b { font-weight: 600; font-size: 13px; color: var(--cream-dim); font-variant-numeric: tabular-nums; }
+.em-tasks li.ready b { color: var(--win); }
+.em-tasks small { grid-column: 2 / -1; font-size: 12px; color: var(--cream-dim); }
+.em-quests li { display: grid; gap: 4px; padding: 10px 16px; border-bottom: 1px solid rgba(217, 164, 65, 0.12); }
+.em-quests .em-line span:first-child { color: var(--cream); font-size: 14px; }
+.em-quests .em-line b { font-weight: 600; color: var(--brass-hi); }
+.em-quests li.done .em-line b { color: var(--win); }
+.em-quests small { font-size: 12px; color: var(--cream-dim); font-variant-numeric: tabular-nums; }
+.em-empty { padding: 16px; color: var(--cream-dim); font-size: 14px; }
+.em-top li { display: grid; grid-template-columns: 20px auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 16px; border-bottom: 1px solid rgba(217, 164, 65, 0.12); font-size: 14px; }
+.em-top li.me { background: rgba(217, 164, 65, 0.1); }
+.em-top li.me .em-name { color: var(--brass-hi); }
+.em-top li.sep { grid-template-columns: 20px minmax(0, 1fr) auto; border-top: 1px dashed rgba(217, 164, 65, 0.3); }
+.em-top li.em-next { display: block; color: var(--cream-dim); font-size: 12px; }
+.em-rank { font-size: 12px; color: var(--cream-dim); text-align: right; font-variant-numeric: tabular-nums; }
+.em-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.em-star { font-size: 12px; color: #b48cff; }
+.em-top b { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.away-card { width: min(420px, 100%); display: grid; gap: 12px; padding: 20px; border-radius: 16px; background: var(--lacquer-deep); border: 1px solid rgba(217, 164, 65, 0.4); }
+.away-card h3 { margin: 0; font-size: 18px; font-weight: 600; }
+.away-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.away-list li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: 14px; }
+.away-list li.pos b { color: var(--win); }
+.away-list li.neg b { color: var(--loss); }
+.away-ready { margin: 0; font-size: 14px; color: var(--cream-dim); }
+.away-ready code { color: var(--brass-hi); }
+
+.tuto { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+.tuto[hidden] { display: none; }
+.tuto-bubble {
+    position: fixed; width: min(300px, calc(100vw - 24px)); display: grid; gap: 6px; padding: 14px 16px; pointer-events: auto;
+    border-radius: 14px; background: var(--lacquer-deep); border: 1px solid var(--brass-hi); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.tuto-bubble small { font-size: 12px; color: var(--cream-dim); }
+.tuto-bubble b { font-size: 16px; font-weight: 600; color: var(--brass-hi); }
+.tuto-bubble p { margin: 0; font-size: 14px; }
+.tuto-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+.tuto-on { position: relative; z-index: 59; outline: 2px solid var(--brass-hi); outline-offset: 3px; border-radius: 12px; }
+
+@media (max-width: 1000px) {
+    .em-body { grid-template-columns: minmax(0, 1fr); }
+    .em-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+    .goal { order: 4; width: 100%; max-width: none; }
+    .em-card { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "ic main" "buy buy" "info info"; }
+    .em-card .em-buy { justify-content: flex-start; }
+}
+
+/* 5 onglets sur telephone : icones seules, le texte reste pour l'onglet ouvert et pour les lecteurs d'ecran */
+@media (max-width: 520px) {
+    .tabs button { font-size: 0; gap: 0; }
+    .tabs button .ic { width: 20px; height: 20px; }
+    .tabs button[aria-selected='true'] { font-size: 13px; gap: 6px; flex: 2 1 0; }
+}

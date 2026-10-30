@@ -54,7 +54,7 @@ const COUNTERS = [
     'rb', 'wacount', 'insultcount', 'slavecount', 'cavecount', 'pertecount',
     'wincount', 'gamblecount', 'minecount', 'daily_last', 'daily_streak',
     'xp', 'level', 'remind', 'duelwins', 'maxwin', 'winstreak', 'bestwinstreak', 'last_seen', 'debt',
-    'foreman',
+    'foreman', 'prestige',
 ];
 
 const PROFILE_EXTRA = {
@@ -282,6 +282,14 @@ async function migrate() {
     )`);
     await exec(`CREATE TABLE IF NOT EXISTS crash_paid (
         k VARCHAR(80) NOT NULL PRIMARY KEY
+    )`);
+
+    // ce qui s'est passe pendant ton absence (contremaitre, entretien), montre a l'ouverture de l'app
+    await exec(`CREATE TABLE IF NOT EXISTS away_log (
+        id_user VARCHAR(32) NOT NULL PRIMARY KEY,
+        foreman BIGINT NOT NULL DEFAULT 0,
+        upkeep BIGINT NOT NULL DEFAULT 0,
+        seen_at BIGINT NOT NULL DEFAULT 0
     )`);
 
     // compte "banque du slip" (le casino) : recoit les pertes

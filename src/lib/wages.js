@@ -12,7 +12,7 @@ const GW_AVG = 62.5;
 /** salaire d'un creneau de 30 min. Le contremaitre ne change pas la cadence, il paie plus par esclave. */
 function workAmount(slaves, { foreman = false, mult = 1 } = {}) {
     const per = WORK_PER_SLAVE + (foreman ? FOREMAN_EXTRA : 0);
-    return (WORK_BASE + per * Math.max(0, Math.trunc(Number(slaves) || 0))) * mult;
+    return Math.round((WORK_BASE + per * Math.max(0, Math.trunc(Number(slaves) || 0))) * mult);
 }
 
 /** bouton tycoon : avant, apres, et en combien de creneaux le bonus rembourse le prix */

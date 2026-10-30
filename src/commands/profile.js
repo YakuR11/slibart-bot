@@ -22,6 +22,7 @@ async function badgesFor(p) {
     const t = tops[0] || {};
     const me = p.id_user;
     const b = [];
+    if (Number(p.prestige) > 0) b.push(`⭐ **Prestige ${p.prestige}**`);
     if (String(t.rich) === me) b.push('👑 **Capitaliste suprême**');
     if (String(t.toxic) === me) b.push('🤬 **Toxic King**');
     if (String(t.miner) === me) b.push('⛏️ **Mineur en chef**');

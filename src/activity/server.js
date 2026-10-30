@@ -8,6 +8,7 @@ const { WebSocketServer } = require('ws');
 const config = require('../config');
 const db = require('../db');
 const eco = require('../lib/economy');
+const announce = require('../lib/announce');
 const log = require('../lib/logger');
 const progress = require('../lib/progress');
 const plinko = require('./plinko');
@@ -18,6 +19,9 @@ const life = require('./life');
 const loto = require('../lib/loto');
 const skins = require('../lib/skins');
 const sportApp = require('./sports');
+const tycoon = require('../lib/tycoon');
+const prestige = require('../lib/prestige');
+const away = require('../lib/away');
 
 const ROOT = path.join(__dirname, '..', '..', 'activity');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4' };
@@ -203,6 +207,20 @@ async function handleReq(ws, room, s, op, a = {}) {
             const data = await life.mapData(userInfo);
             const mine = data.houses.find((h) => h.id === s.id);
             return { ...data, you: mine ? mine.plot : null, full: !mine && data.houses.length >= data.plots };
+        }
+        case 'tycoon.state': return tycoon.state(s.id);
+        case 'tycoon.top': return tycoon.top(s.id, userInfo);
+        case 'tycoon.away': return away.take(s.id);
+        case 'tycoon.buy': {
+            const r = await tycoon.buy(s.id, String(a.item || ''), a.qty);
+            return { ...r, ok: !r.err, balance: await eco.balance(s.id), state: await tycoon.state(s.id) };
+        }
+        case 'tycoon.rebirth': {
+            const r = await prestige.rebirth(s.id);
+            if (!r.err) {
+                announce.send({ content: `⭐ **${s.name}** passe **prestige ${r.level}** ! Il brûle **${r.burned.toLocaleString('fr-FR')}** RB et repart de zéro avec ses revenus **x${r.mult.toFixed(1)}**.` }).catch(() => {});
+            }
+            return { ...r, ok: !r.err, balance: await eco.balance(s.id), state: await tycoon.state(s.id) };
         }
         case 'sports.list': return sportApp.list(s.id);
         case 'sports.bet': return sportApp.bet(s.id, a);

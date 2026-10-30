@@ -633,6 +633,29 @@ export class MapView {
             ctx.textBaseline = 'middle';
             ctx.fillText(String(rank), x + r * 0.78, ay + r * 0.72 + 0.5);
         }
+        // prestige : etoile violette avec le niveau
+        if (h.prestige > 0) {
+            const px = x - r * 0.8;
+            const py = ay + r * 0.72;
+            const k = r * 0.46;
+            ctx.fillStyle = '#b48cff';
+            ctx.strokeStyle = '#2a1050';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let i = 0; i < 10; i++) {
+                const a = -Math.PI / 2 + (i * Math.PI) / 5;
+                const rr = i % 2 ? k * 0.48 : k;
+                ctx.lineTo(px + Math.cos(a) * rr, py + Math.sin(a) * rr);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#1a0838';
+            ctx.font = `600 ${r * 0.42}px Bricolage, system-ui, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(String(h.prestige), px, py + 0.5);
+        }
         // nom : texte avec contour, 13 a 16 px a l'ecran
         const fs = Math.max(13, Math.min(16, 13 * this.cam.z * 0.9)) / this.cam.z;
         ctx.font = `600 ${fs}px Bricolage, system-ui, sans-serif`;

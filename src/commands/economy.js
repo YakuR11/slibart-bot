@@ -25,28 +25,18 @@ const DAILY_STREAK_BONUS = 25; // par jour de streak
 const DAILY_STREAK_MAX = 10;
 const DAILY_CD = 20 * 3600 * 1000; // 20h : pas besoin d'etre pile a la meme heure chaque jour
 const DAILY_BREAK = 48 * 3600 * 1000; // streak perdu apres 48h sans daily
-// Prix exponentiels : chaque achat coute plus cher que le precedent, pas de limite.
-// esclave n°1 = 90, n°11 = 364, n°21 = 1 473, n°31 = 5 959, n°41 = 24 108...
-// cave n°1 = 300, n°3 = 867, n°5 = 2 506, n°8 = 12 310, n°10 = 35 576...
-const SLAVE_BASE = 90;
-const SLAVE_GROWTH = 1.15; // +15% par esclave que tu possedes deja
-const SLAVE_INFLATION = 1; // +1 RB par esclave existant sur tout le serveur
-const SLAVES_PER_CAVE = 5;
-const CAVE_BASE = 300;
-const CAVE_GROWTH = 1.7; // +70% par cave que tu possedes deja
-const CAVE_CD = 90 * 60 * 1000;
-const BULK_MAX = 50; // max d'esclaves achetes en une fois
-
-const slaveUnit = (owned, server) => Math.round(SLAVE_BASE * SLAVE_GROWTH ** owned + SLAVE_INFLATION * server);
-const cavePrice = (owned) => Math.round(CAVE_BASE * CAVE_GROWTH ** owned);
-/** cout de qty esclaves quand on en a deja owned (chaque unite plus chere) */
-function slaveCost(owned, qty, server) {
-    let c = 0;
-    for (let k = 0; k < qty; k++) c += slaveUnit(owned + k, server + k);
-    return c;
-}
+const shop = require('../lib/shop');
+const { SLAVES_PER_CAVE, slaveUnit, cavePrice, slaveCost, serverSlaves, LOCK_PRICE } = shop;
+const prestige = require('../lib/prestige');
 const MINE_CD = 60 * 1000;
-const LOCK_PRICE = 600;
+
+function buyError(r) {
+    if (r.err === 'room') return `Plus de place ! **${SLAVES_PER_CAVE} esclaves par cave**. Prochaine cave : **${fmt(r.cave)}** ${RB()} (\`${config.prefix}buy cave\`).`;
+    if (r.err === 'bulk') return `${shop.BULK_MAX} max par achat.`;
+    if (r.err === 'roomfor') return `Tu as de la place pour **${r.room}** esclave(s) seulement.`;
+    if (r.err === 'broke') return r.qty > 1 ? `Il te faut **${fmt(r.need)}** ${RB()} pour ${r.qty} esclave(s) (tu as ${fmt(r.rb)}).` : `Il te faut **${fmt(r.need)}** ${RB()} pour le prochain esclave.`;
+    return 'Quantité invalide.';
+}
 
 function foremanBlurb(p) {
     const o = wages.foremanOffer(p.slavecount);
@@ -56,11 +46,6 @@ function foremanBlurb(p) {
     const when = o.hours >= 48 ? `${Math.round(o.hours / 24)} jours` : `${Math.round(o.hours)} h`;
     return `${head}> Ramasse le \`${config.prefix}work\` tout seul\n> **${fmt(o.before)} → ${fmt(o.after)}** ${RB()} / 30 min (**+${fmt(o.delta)}**)\n> Remboursé en **${o.slots}** créneaux, environ **${when}**\n\n`;
 }
-
-const serverSlaves = async (conn = db.pool) => {
-    const [[{ total }]] = await conn.query('SELECT COALESCE(SUM(slavecount), 0) AS total FROM profile');
-    return Number(total);
-};
 
 async function shopEmbed(ctx) {
     const p = await db.getProfile(ctx.user.id);
@@ -106,7 +91,7 @@ module.exports = [
                 .addFields(
                     { name: '👥 Esclaves', value: `${p.slavecount} / ${p.cavecount * SLAVES_PER_CAVE}`, inline: true },
                     { name: '🏠 Caves', value: `${p.cavecount} · prochaine ${fmt(cavePrice(p.cavecount))}`, inline: true },
-                    { name: '💼 Revenu =work', value: `${fmt(wages.workAmount(p.slavecount, { foreman: p.foreman }))} ${RB()} / 30 min${p.foreman ? '\ncontremaître en poste' : ''}`, inline: true },
+                    { name: '💼 Revenu =work', value: `${fmt(wages.workAmount(p.slavecount, { foreman: p.foreman, mult: prestige.mult(p.prestige) }))} ${RB()} / 30 min${p.foreman ? '\ncontremaître en poste' : ''}${p.prestige ? `\n⭐ prestige ${p.prestige} (x${prestige.mult(p.prestige).toFixed(1)})` : ''}`, inline: true },
                     { name: '🏠 Entretien', value: p.cavecount ? `${fmt(upkeep.caveFee(p.cavecount))} ${RB()} / jour` : 'pas de cave', inline: true },
                     { name: '💸 Taxe', value: `1 % au-dessus de ${fmt(upkeep.TAX_FLOOR)} (max ${fmt(upkeep.TAX_CAP)} / jour)`, inline: true },
                     { name: '📈 Gains casino', value: `${fmt(p.wincount)} ${RB()}`, inline: true },
@@ -126,7 +111,8 @@ module.exports = [
             const p = await db.getProfile(ctx.user.id);
             const m = await boost.mult();
             const bonus = (WORK_PER_SLAVE + (p.foreman ? wages.FOREMAN_EXTRA : 0)) * p.slavecount;
-            const pot = wages.workAmount(p.slavecount, { foreman: p.foreman, mult: m });
+            const pm = prestige.mult(p.prestige);
+            const pot = wages.workAmount(p.slavecount, { foreman: p.foreman, mult: m * pm });
             const got = await wages.claim(ctx.user.id, 'work', pot, pot, { all: true });
             if (got.paid <= 0) {
                 const who = p.foreman ? 'ton contremaître est passé' : 'déjà fait';
@@ -134,7 +120,7 @@ module.exports = [
             }
             const pay = await eco.addRb(ctx.user.id, got.paid);
             const partial = got.already ? ` · ${fmt(got.already)} déjà pris` : '';
-            const boss = p.foreman ? ' · ⏱️ contremaître' : '';
+            const boss = `${p.foreman ? ' · ⏱️ contremaître' : ''}${p.prestige ? ` · ⭐ x${pm.toFixed(1)}` : ''}`;
             await ctx.reply(
                 `**+${fmt(pay.net)}** ${RB()} pour **${ctx.displayName}** !${happyTag(m)}${credit.note(pay.cut, pay.debt)}\n` +
                 `-# 💼 Travail ${WORK_BASE}${bonus ? ` · 📜 Bonus esclaves +${fmt(bonus)}` : ''}${boss}${partial} · prochain ${ui.ts(got.slotEnd)}`,
@@ -148,15 +134,17 @@ module.exports = [
         category: 'eco',
         description: 'Travail au hasard : 25 a 100 RB (toutes les 30 min)',
         async run(ctx) {
-            const m = await boost.mult();
+            const hm = await boost.mult();
+            const m = hm * prestige.mult((await db.getProfile(ctx.user.id)).prestige);
             const base = randInt(25, 100);
-            const got = await wages.claim(ctx.user.id, 'gw', base * m, base * m, { all: true, lockPot: true });
+            const pot = Math.round(base * m);
+            const got = await wages.claim(ctx.user.id, 'gw', pot, pot, { all: true, lockPot: true });
             if (got.paid <= 0) return ctx.reply(`⏳ **${ctx.displayName}**, prochain gw ${ui.ts(got.slotEnd)}.`);
             const pay = await eco.addRb(ctx.user.id, got.paid);
-            const shown = got.already ? got.paid : base * m;
+            const shown = got.already ? got.paid : pot;
             const mood = shown >= 90 * m ? '🤑' : shown <= 35 * m ? '😐' : '💸';
             const partial = got.already ? ` · ${fmt(got.already)} déjà pris` : '';
-            await ctx.reply(`${mood} **+${fmt(pay.net)}** ${RB()} pour **${ctx.displayName}** !${happyTag(m)}${credit.note(pay.cut, pay.debt)}\n-# prochain gw ${ui.ts(got.slotEnd)}${partial}`);
+            await ctx.reply(`${mood} **+${fmt(pay.net)}** ${RB()} pour **${ctx.displayName}** !${happyTag(hm)}${credit.note(pay.cut, pay.debt)}\n-# prochain gw ${ui.ts(got.slotEnd)}${partial}`);
             if (got.fresh) await progress.track(ctx, { gw: 1 });
         },
     },
@@ -174,7 +162,7 @@ module.exports = [
             }
             const streak = p.daily_last && since < DAILY_BREAK ? p.daily_streak + 1 : 1;
             const m = await boost.mult();
-            const reward = (DAILY_BASE + DAILY_STREAK_BONUS * Math.min(streak - 1, DAILY_STREAK_MAX)) * m;
+            const reward = Math.round((DAILY_BASE + DAILY_STREAK_BONUS * Math.min(streak - 1, DAILY_STREAK_MAX)) * m * prestige.mult(p.prestige));
             // conditionne sur l'ancienne valeur : impossible de prendre 2 dailies en spammant
             const res = await db.exec(
                 'UPDATE profile SET daily_last = ?, daily_streak = ? WHERE id_user = ? AND daily_last = ?',
@@ -246,75 +234,35 @@ module.exports = [
             if (!what) return ctx.reply({ embeds: [await shopEmbed(ctx)] });
 
             if (what === 'slave') {
-                const result = await db.tx(async (conn) => {
-                    await db.ensureProfile(ctx.user.id, conn);
-                    const [[p]] = await conn.query('SELECT rb, slavecount, cavecount FROM profile WHERE id_user = ? FOR UPDATE', [ctx.user.id]);
-                    const server = await serverSlaves(conn);
-                    const rb = Number(p.rb);
-                    const owned = Number(p.slavecount);
-                    const room = Number(p.cavecount) * SLAVES_PER_CAVE - owned;
-                    if (room <= 0) return { err: `Plus de place ! **${SLAVES_PER_CAVE} esclaves par cave**. Prochaine cave : **${fmt(cavePrice(Number(p.cavecount)))}** ${RB()} (\`${config.prefix}buy cave\`).` };
-                    let qty;
-                    if (['max', 'all'].includes(String(quantite).toLowerCase())) {
-                        qty = 0;
-                        while (qty < Math.min(room, BULK_MAX) && slaveCost(owned, qty + 1, server) <= rb) qty++;
-                    } else qty = quantite === undefined ? 1 : parseInt(quantite, 10);
-                    const first = slaveUnit(owned, server);
-                    if (!qty || qty < 0 || Number.isNaN(qty)) return { err: rb < first ? `Il te faut **${fmt(first)}** ${RB()} pour le prochain esclave.` : 'Quantité invalide.' };
-                    if (qty > BULK_MAX) return { err: `${BULK_MAX} max par achat.` };
-                    if (qty > room) return { err: `Tu as de la place pour **${room}** esclave(s) seulement.` };
-                    const cost = slaveCost(owned, qty, server);
-                    if (rb < cost) return { err: `Il te faut **${fmt(cost)}** ${RB()} pour ${qty} esclave(s) (tu as ${fmt(rb)}).` };
-                    await conn.query('UPDATE profile SET rb = rb - ?, slavecount = slavecount + ? WHERE id_user = ?', [cost, qty, ctx.user.id]);
-                    return { qty, cost, total: owned + qty, next: slaveUnit(owned + qty, server + qty) };
-                });
-                if (result.err) return ctx.fail(result.err);
-                return ctx.reply(`👏 **${ctx.displayName}** a acheté **${result.qty}** esclave(s) pour **${fmt(result.cost)}** ${RB()}. Total : **${result.total}**.\n-# prochain esclave : ${fmt(result.next)}`);
+                const r = await shop.buySlaves(ctx.user.id, quantite);
+                if (r.err) return ctx.fail(buyError(r));
+                return ctx.reply(`👏 **${ctx.displayName}** a acheté **${r.qty}** esclave(s) pour **${fmt(r.cost)}** ${RB()}. Total : **${r.total}**.\n-# prochain esclave : ${fmt(r.next)}`);
             }
 
             if (what === 'cave') {
-                const left = await cd.remaining(ctx.user.id, 'cave');
-                if (left) return ctx.fail(`Prochaine cave ${ui.ts(Date.now() + left)}.`);
-                const result = await db.tx(async (conn) => {
-                    await db.ensureProfile(ctx.user.id, conn);
-                    const [[p]] = await conn.query('SELECT rb, cavecount FROM profile WHERE id_user = ? FOR UPDATE', [ctx.user.id]);
-                    const price = cavePrice(Number(p.cavecount));
-                    if (Number(p.rb) < price) return { err: `Il te faut **${fmt(price)}** ${RB()} pour ta cave n°${Number(p.cavecount) + 1} (tu as ${fmt(p.rb)}).` };
-                    await conn.query('UPDATE profile SET rb = rb - ?, cavecount = cavecount + 1 WHERE id_user = ?', [price, ctx.user.id]);
-                    return { total: Number(p.cavecount) + 1, price };
-                });
-                if (result.err) return ctx.fail(result.err);
-                await cd.set(ctx.user.id, 'cave', CAVE_CD);
-                return ctx.reply(`🏠 **${ctx.displayName}** a acheté sa cave n°${result.total} pour **${fmt(result.price)}** ${RB()} (${result.total * SLAVES_PER_CAVE} places).\n-# prochaine cave : ${fmt(cavePrice(result.total))}`);
+                const r = await shop.buyCave(ctx.user.id);
+                if (r.err === 'cd') return ctx.fail(`Prochaine cave ${ui.ts(r.until)}.`);
+                if (r.err) return ctx.fail(`Il te faut **${fmt(r.need)}** ${RB()} pour ta cave n°${r.n} (tu as ${fmt(r.rb)}).`);
+                return ctx.reply(`🏠 **${ctx.displayName}** a acheté sa cave n°${r.total} pour **${fmt(r.price)}** ${RB()} (${r.total * SLAVES_PER_CAVE} places).\n-# prochaine cave : ${fmt(cavePrice(r.total))}`);
             }
 
             if (what === 'contremaitre') {
-                const result = await db.tx(async (conn) => {
-                    await db.ensureProfile(ctx.user.id, conn);
-                    const [[p]] = await conn.query('SELECT rb, foreman, slavecount FROM profile WHERE id_user = ? FOR UPDATE', [ctx.user.id]);
-                    if (Number(p.foreman)) return { err: 'Ton contremaître est déjà en poste.' };
-                    const price = wages.FOREMAN_PRICE;
-                    if (Number(p.rb) < price) return { err: `Il te faut **${fmt(price)}** ${RB()} (tu as ${fmt(p.rb)}).` };
-                    const [upd] = await conn.query('UPDATE profile SET rb = rb - ?, foreman = 1 WHERE id_user = ? AND foreman = 0 AND rb >= ?', [price, ctx.user.id, price]);
-                    if (!upd.affectedRows) return { err: 'Achat pas passé, réessaie.' };
-                    const offer = wages.foremanOffer(p.slavecount);
-                    return { price, offer };
-                });
-                if (result.err) return ctx.fail(result.err);
-                const o = result.offer;
+                const r = await shop.buyForeman(ctx.user.id);
+                if (r.err === 'owned') return ctx.fail('Ton contremaître est déjà en poste.');
+                if (r.err === 'broke') return ctx.fail(`Il te faut **${fmt(r.need)}** ${RB()} (tu as ${fmt(r.rb)}).`);
+                if (r.err) return ctx.fail('Achat pas passé, réessaie.');
+                const o = r.offer;
                 return ctx.reply(
-                    `⏱️ **${ctx.displayName}** pose le contremaître pour **${fmt(result.price)}** ${RB()}.\n` +
+                    `⏱️ **${ctx.displayName}** pose le contremaître pour **${fmt(r.price)}** ${RB()}.\n` +
                     `**${fmt(o.before)} → ${fmt(o.after)}** ${RB()} / 30 min. Il ramasse même si t'es pas là.`,
                 );
             }
 
             if (what === 'cadenas') {
-                const qty = Math.min(10, Math.max(1, parseInt(quantite, 10) || 1));
-                const have = (await inv.list(ctx.user.id)).cadenas || 0;
-                if (have + qty > 10) return ctx.fail('10 cadenas max.');
-                if (!(await eco.takeRb(ctx.user.id, qty * LOCK_PRICE))) return ctx.fail(`Il te faut **${fmt(qty * LOCK_PRICE)}** ${RB()}.`);
-                await inv.add(ctx.user.id, 'cadenas', qty);
-                return ctx.reply(`🔒 **${ctx.displayName}** achète **${qty}** cadenas. Tu en as **${have + qty}**, les voleurs n'ont qu'à bien se tenir.`);
+                const r = await shop.buyLocks(ctx.user.id, quantite);
+                if (r.err === 'max') return ctx.fail(`${shop.LOCK_MAX} cadenas max.`);
+                if (r.err) return ctx.fail(`Il te faut **${fmt(r.need)}** ${RB()}.`);
+                return ctx.reply(`🔒 **${ctx.displayName}** achète **${r.qty}** cadenas. Tu en as **${r.have}**, les voleurs n'ont qu'à bien se tenir.`);
             }
             return ctx.fail(`Item inconnu. \`${config.prefix}shop\` pour voir le magasin.`);
         },
@@ -335,7 +283,7 @@ module.exports = [
             else if (r < 61) { gain = randInt(10, 25); what = '🟡 **Pépite d\'or**'; }
             else { gain = randInt(1, 5); what = '🪨 **Pierre commune**'; }
             const hm = await boost.mult();
-            gain *= hm;
+            gain = Math.round(gain * hm * prestige.mult((await db.getProfile(ctx.user.id)).prestige));
             // 1 chance sur 40 de trouver un coffre en minant
             const found = Math.random() < 1 / 40;
             if (found) await inv.add(ctx.user.id, 'coffre');
