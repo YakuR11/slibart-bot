@@ -188,7 +188,7 @@ async function migrate() {
         day CHAR(10) NOT NULL,
         INDEX (day)
     )`);
-    // la carte du quartier : une maison fixe par membre
+    // la carte du quartier : 20 emplacements, pas une maison par membre
     await exec(`CREATE TABLE IF NOT EXISTS map_houses (
         plot INT PRIMARY KEY,
         id_user VARCHAR(32) NOT NULL UNIQUE,
@@ -254,6 +254,34 @@ async function migrate() {
     )`);
     cols = await columns('sport_matches');
     if (!cols.bo) await exec('ALTER TABLE sport_matches ADD COLUMN bo INT NOT NULL DEFAULT 1');
+
+    // pot de salaire partage entre =work/=gw et les clics de l'app (survit au redemarrage)
+    await exec(`CREATE TABLE IF NOT EXISTS wage_slot (
+        id_user VARCHAR(32) NOT NULL,
+        kind VARCHAR(16) NOT NULL,
+        slot_end BIGINT NOT NULL,
+        pot INT NOT NULL,
+        paid INT NOT NULL DEFAULT 0,
+        tracked TINYINT NOT NULL DEFAULT 0,
+        PRIMARY KEY (id_user, kind)
+    )`);
+
+    // manche de Crash en cours : reprise au boot, les mises ne disparaissent pas avec le process
+    await exec(`CREATE TABLE IF NOT EXISTS crash_rounds (
+        room VARCHAR(64) NOT NULL PRIMARY KEY,
+        round_id VARCHAR(32) NOT NULL,
+        phase VARCHAR(16) NOT NULL,
+        point DOUBLE NULL,
+        start_at BIGINT NULL,
+        crash_at BIGINT NULL,
+        ends_at BIGINT NULL,
+        bets MEDIUMTEXT NOT NULL,
+        history TEXT NOT NULL,
+        updated_at BIGINT NOT NULL
+    )`);
+    await exec(`CREATE TABLE IF NOT EXISTS crash_paid (
+        k VARCHAR(80) NOT NULL PRIMARY KEY
+    )`);
 
     // compte "banque du slip" (le casino) : recoit les pertes
     await ensureProfile(config.casinoId);

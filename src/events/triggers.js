@@ -1,5 +1,5 @@
 // Tout ce qui reagit aux messages normaux (pas des commandes) :
-// triggers, compteur de rolls Mudae, compteur d'insultes, le heckle de Rigel.
+// triggers, compteur de rolls Mudae, compteur d'insultes.
 const config = require('../config');
 const eco = require('../lib/economy');
 const log = require('../lib/logger');
@@ -80,12 +80,6 @@ async function onMessage(message) {
                 triggerCd.set(message.channel.id, Date.now());
                 for (let i = 0; i < (trig.repeat || 1); i++) await message.channel.send(trig.reply);
             }
-        }
-
-        // le fameux 1 chance sur 60
-        const h = C.randomHeckle;
-        if (h?.userId === message.author.id && Math.floor(Math.random() * h.chance) === 0) {
-            await message.channel.send(h.message);
         }
 
         // compteur de rolls Mudae ($wa, $ha...)

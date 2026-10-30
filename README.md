@@ -109,8 +109,8 @@ Les mises acceptent `all`, `half`, `1k`, `2.5k`, `1m`. Chaque résultat de casin
 `SPORTS_API_KEY` dans le `.env` (clé API-Football). Le bot ne l'écrase pas au dézippage : ajoute la ligne si elle n'y est pas encore.
 
 - **Foot** : Ligue 1, Premier League, Liga, Serie A, Bundesliga, Ligue des champions, Europa League. Avec la clé gratuite, l'API ne donne qu'hier, aujourd'hui et demain : le lendemain, la fenêtre avance. Cotes bookmaker, marge 5 %, figées sur le ticket. Mises fermées au coup d'envoi.
-- **LoL** : Worlds, MSI, First Stand, LEC, EWC quand Riot le publie. Pas de cote bookmaker en esport : le bot tient un **classement Elo** de toutes les équipes (LCK, LPL, LEC, LTA, Worlds...) construit sur l'historique et mis à jour après chaque match pro. La cote vient de l'écart d'Elo et du format (Bo1/Bo3/Bo5). `=elo` affiche le classement. Les paris ferment au début du match (pas de pari en direct : les cotes ne suivent pas la partie en cours).
-- `=matchs`, `=matchs lol`, `=parier 12 1 500`, `=mesparis`. Une mise par match, plafond 100 000 RB. Quota API-Football (100 req/jour) géré tout seul : le bot garde toujours de quoi régler les paris. Match annulé : remboursement. Les gains comptent dans la saison.
+- **LoL** : Worlds, MSI, First Stand, LEC, EWC quand Riot le publie. Pas de cote bookmaker en esport : le bot tient un **classement Elo**. Au premier passage il prend une fois le classement public du tournoi en cours, puis seuls les résultats le font bouger. `=elo` montre si les équipes ont vraiment divergé. Les paris ferment au début du match (pas de pari en direct : les cotes ne suivent pas la partie en cours).
+- `=matchs`, `=matchs lol`, `=parier 12 1 500`, `=mesparis`, ou l'onglet **Paris** de l'app. Une mise par match, plafond 100 000 RB. Quota API-Football (100 req/jour) géré tout seul : le bot garde toujours de quoi régler les paris. Match annulé : remboursement. Les gains comptent dans la saison.
 
 ## Mettre à jour le bot
 
@@ -170,7 +170,7 @@ docker compose --profile tunnel up -d --build
 docker compose logs -f bot     # doit afficher "[activity] Plinko sur le port 3001"
 ```
 
-**5. Jouer** · rejoins un vocal → clique sur la **fusée 🚀** (Activités) → choisis le bot. Ou tape **/plinko** n'importe où.
+**5. Jouer** · dans le chat, y compris sur téléphone : `=g r 300`, `=slots 100`, `=pk 100`. Sur PC, le vocal et la fusée 🚀 ouvrent en plus la fenêtre. `/plinko` sans mise tente d'ouvrir cette fenêtre.
 
 ### Tester sur ton PC sans Discord
 
@@ -186,18 +186,29 @@ dans le `.env`, relance, puis ouvre http://localhost:3001/?name=Hicham. **Remets
 
 ### 🎰 L'app du casino (tous les jeux d'argent passent par là)
 
-Les jeux d'argent ne se jouent plus en commande dans le chat : `=gamble`, `=slots`, `=bj`, `=mines`, `=crash`, `=loto` et `=duel` répondent juste où trouver l'app. Tout le reste (work, give, bank, profil…) ne change pas.
+L'activité Discord (la fenêtre dans un vocal) ne s'ouvre pas sur téléphone. Les jeux se jouent donc aussi dans le chat, avec des boutons : `=g r 300`, `=slots 100`, `=bj 200`, `=mines 200`, `=crash 300`, `=pk 100`, `=loto 5`, `=duel @quelqu'un 200`. Sur PC, le vocal et la fusée 🚀 restent là pour la même table.
 
-- **Casino** : Plinko, Crash (une fusée pour tout le vocal), Roulette, Slots (jackpot progressif), Blackjack, Mines, Loto (tirage à 21h) et Duel pierre-feuille-ciseaux entre deux joueurs de l'app. On ne tape que la mise, tout le reste se fait avec des boutons.
+- **Casino** : Plinko, Crash (une fusée pour tout le vocal), Roulette, Slots (jackpot progressif), Blackjack, Mines, Loto (tirage à 21h) et Duel pierre-feuille-ciseaux entre deux joueurs de l'app. On ne tape que la mise, tout le reste se fait avec des boutons. Une manche de Crash en cours est reprise si le bot redémarre : les mises ne disparaissent pas avec le process.
 - **Centre des paris** (colonne de gauche) : tout le monde voit tous les paris en deux temps, d'abord la mise puis le résultat. Plus la mise est grosse, plus la carte est grande. Le résultat rayonne en vert ou en rouge, plus fort quand la somme est grosse. Un tapis de plus de 1 000 illumine l'écran de tout le monde, une mise ≥ 2 000 gagnée notifie tout le monde avec le GIF perso du gagnant, et les grosses pertes ont droit à des 🤣.
-- **#bot** : chaque résultat de mise ≥ 500 y est posté, GIF perso compris.
+- **#bot** : un seul message, la tribune, se met à jour avec les gros paris (≥ 500). Le GIF perso d'un gros gain reste un message à part. Pas besoin d'être dans le vocal pour voir la tribune.
 - **#daily** : récap du jour à 23h55 (rois du jour, gros perdants, plus gros gain et plus grosse perte par jeu, le plus accro). `=recap` pour l'envoyer tout de suite.
-- **Work** : boutons Work, Gamblework et Mine, chacun cliquable *n* fois par minute (*n* = nombre d'esclaves, 1 minimum). Un clic rapporte une petite part d'un vrai `=work`. Un « ! » apparaît sur l'onglet quand un clic est dispo. `=w`, `=gw` et `=m` marchent toujours dans le chat.
-- **Carte** : un quartier avec une maison fixe par membre (20 places), sa pp et son nom au-dessus, ses caves dessinées en dessous. Plus on a de RB, plus la maison est grande (+10 % max à 10 000) et plus elle brille. `=initmap` place d'un coup les maisons des membres déjà connus, et les nouveaux en reçoivent une en ouvrant l'app.
+- **Paris** : onglet à côté du casino, mêmes tickets que `=parier`.
+- **Work** : Work et Gamblework sont des morceaux du salaire de `=work` et `=gw` (une demi-heure). Les clics ne s'ajoutent pas à la commande. La mine est la même pioche que `=mine`, une fois par minute. Un « ! » apparaît sur l'onglet quand un clic est dispo. Les quotas sont en base : un redémarrage ne les remet pas à zéro.
+- **Carte** : 20 maisons, pas une par membre. La 21e personne n'en a pas. Sa pp et son nom au-dessus, ses caves dessinées en dessous. Plus on a de RB, plus la maison est grande (+10 % max à 10 000) et plus elle brille. `=initmap` place les maisons des membres déjà connus, dans la limite des 20 places.
 - **Profils** : clic sur n'importe quelle pp pour voir le profil complet (image, badges, stats, niveau…).
 - **Boutique** : cadres d'avatar à 500 RB (décorations, drapeaux, anneaux), dont certains ne tombent que des coffres, et GIF de victoire perso à 1 000 RB (lien Tenor ou Giphy). Les anciens skins de billes, traînées et tables ont été remboursés automatiquement.
 
 Salons : le bot cherche les salons nommés `bot` et `daily`, ou prend `BOT_CHANNEL_ID` et `DAILY_CHANNEL_ID` dans le `.env`.
+
+## Savoir si le bot est vivant
+
+Au démarrage et à l'arrêt, un message part dans le salon `ops` ou `admin`, ou dans `OPS_CHANNEL_ID` : commit (ou version), heure de Paris, activity up ou down.
+
+La base est sauvegardée tous les jours dans `backups/` (les 7 derniers fichiers `slip-*.sql`) par le service `backup` de Docker. `docker compose up -d` lance aussi cette sauvegarde.
+
+Les caves ont un entretien quotidien qui grandit avec leur nombre. Au-dessus de 20 000 RB, 1 % par jour part à la banque du slip, plafonné à 5 000. `=bank` affiche les deux.
+
+Si un token (bot, secret OAuth, jeton de tunnel) a été collé dans un chat, régénère-le et remplace la ligne du `.env`. Ne le recolle nulle part. Le dépôt ne contient pas le `.env`.
 
 ### Images de l'Activity (carte dans la liste des Activités)
 

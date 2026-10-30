@@ -12,6 +12,7 @@ import { MinesView } from './views/mines.js';
 import { LotoView } from './views/loto.js';
 import { DuelView } from './views/duel.js';
 import { WorkView } from './views/work.js';
+import { ParisView } from './views/paris.js';
 import { MapView } from './views/map.js';
 import { ShopView } from './views/shop.js';
 import { openProfile } from './views/profile.js';
@@ -930,6 +931,7 @@ const views = {
     duel: new DuelView($('v-duel'), app),
 };
 const workView = new WorkView($('p-work'), app);
+const parisView = new ParisView($('p-paris'), app);
 const mapView = new MapView($('p-map'), app);
 const shopView = new ShopView($('p-shop'), app);
 
@@ -983,6 +985,7 @@ function setPage(page) {
     const casino = page === 'casino';
     crash.show(casino && state.view === 'crash');
     workView.show(page === 'work');
+    parisView.show(page === 'paris');
     mapView.show(page === 'map');
     shopView.show(page === 'shop');
     if (casino && state.view === 'plinko') board.resize();

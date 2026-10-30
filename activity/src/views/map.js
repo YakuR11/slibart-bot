@@ -1,5 +1,5 @@
 // Carte du quartier (modele "split pane") : la carte a gauche, la liste des voisins a droite.
-// Une maison fixe par membre : sa pp et son nom au-dessus, une cave dessinee par cave en dessous.
+// 20 maisons, pas une par membre. Sa pp et son nom au-dessus, une cave dessinee par cave en dessous.
 // Plus de RB = maison un peu plus grande (+10 % max a 10 000) et plus lumineuse.
 import { el, fmt } from '../ui.js';
 import { avatarEl, decoImage } from '../avatar.js';
@@ -32,7 +32,7 @@ export class MapView {
             this.list);
 
         page.append(
-            el('header.wk-head', {}, el('div', {}, el('h2', { text: 'Le quartier' }), el('p', { text: 'Chaque membre a sa maison. Plus il a de RB, plus elle brille.' }))),
+            el('header.wk-head', {}, el('div', {}, el('h2', { text: 'Le quartier' }), this.blurb = el('p', { text: '20 maisons, pas une par membre. Plus on a de RB, plus elle brille.' }))),
             el('div.mp-body', {}, this.wrap, side),
         );
 
@@ -56,6 +56,11 @@ export class MapView {
         if (r.error) return this.app.toast(r.error, true);
         const first = !this.data;
         this.data = r;
+        if (this.blurb) {
+            this.blurb.textContent = r.full && r.you == null
+                ? 'Les 20 maisons sont prises. Plus de RB fait briller une maison, ça n\'en crée pas une 21e.'
+                : '20 maisons, pas une par membre. Plus on a de RB, plus elle brille.';
+        }
         this.decor(r);
         for (const h of r.houses) {
             if (!this.imgs.has(h.avatar)) {
@@ -217,7 +222,7 @@ export class MapView {
         this.count.textContent = `${this.data.houses.length}/${this.data.plots}`;
         if (!rows.length) {
             this.list.replaceChildren(el('li.mp-empty', {}, el('b', { text: q ? 'Personne avec ce nom' : 'Le quartier est vide' }),
-                el('span', { text: q ? 'Essaie un autre nom.' : 'Les membres reçoivent une maison en ouvrant l\'app (ou avec =initmap).' }),
+                el('span', { text: q ? 'Essaie un autre nom.' : '20 places. Les premières partent à l\'ouverture de l\'app, ou avec =initmap.' }),
                 q ? el('button.chip', { type: 'button', text: 'Effacer la recherche', onclick: () => { this.search.value = ''; this.renderList(); } }) : null));
             return;
         }

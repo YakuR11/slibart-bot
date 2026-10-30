@@ -70,9 +70,20 @@ async function window(userId, name, max, windowMs) {
     });
 }
 
+/** etat d'une fenetre sans la consommer (0 restant => next = fin de la fenetre) */
+async function windowState(userId, name, max, windowMs) {
+    const rows = await db.q('SELECT expires_at, uses FROM cooldowns WHERE id_user = ? AND name = ?', [String(userId), name]);
+    const now = Date.now();
+    const exp = Number(rows[0]?.expires_at || 0);
+    const uses = Number(rows[0]?.uses || 0);
+    if (exp <= now) return { left: max, next: 0 };
+    const left = Math.max(0, max - uses);
+    return { left, next: left > 0 ? 0 : exp };
+}
+
 async function clear(userId, name = null) {
     if (name) await db.exec('DELETE FROM cooldowns WHERE id_user = ? AND name = ?', [String(userId), name]);
     else await db.exec('DELETE FROM cooldowns WHERE id_user = ?', [String(userId)]);
 }
 
-module.exports = { remaining, set, setUntil, take, window, clear };
+module.exports = { remaining, set, setUntil, take, window, windowState, clear };

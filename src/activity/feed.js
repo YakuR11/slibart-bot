@@ -25,6 +25,7 @@ const ALLIN_MIN = 1000; // all-in avec plus de 1000 : taille max, ecran qui s'il
 const KEEP = 40;
 
 const entries = [];
+const boot = Date.now().toString(36);
 let seq = 0;
 let hub = null; // { broadcastAll(msg) }
 let client = null;
@@ -32,6 +33,7 @@ let client = null;
 function init(h, discordClient) {
     hub = h;
     client = discordClient;
+    loadBoard().catch(() => {});
 }
 
 /** 1 (petit) a 5 (all-in) */
@@ -58,10 +60,10 @@ function pub(e) {
  * Annonce d'une mise.
  * player = { id, name, avatar, skins }, balBefore = solde avant la mise (pour l'all-in)
  */
-function start({ player, game, bet, allin = false, balBefore = 0, text = null, vs = null }) {
+function start({ player, game, bet, allin = false, balBefore = 0, text = null, vs = null, where = null }) {
     const realAllin = !!allin && balBefore > ALLIN_MIN;
     const e = {
-        id: ++seq,
+        id: `${boot}-${++seq}`,
         player: { id: player.id, name: player.name, avatar: player.avatar, skins: player.skins || null },
         vs: vs ? { id: vs.id, name: vs.name, avatar: vs.avatar, skins: vs.skins || null } : null,
         game,
@@ -69,12 +71,17 @@ function start({ player, game, bet, allin = false, balBefore = 0, text = null, v
         allin: realAllin,
         tier: tierOf(bet, realAllin),
         text,
+        where,
         at: Date.now(),
         state: 'live',
     };
     entries.push(e);
     while (entries.length > KEEP) entries.shift();
     hub?.broadcastAll({ type: 'feed:bet', entry: pub(e) });
+    if (bet >= DISCORD_MIN || realAllin) {
+        const g = GAMES[game] || { label: game, emoji: '🎲' };
+        remember(e.id, `⏳ ${g.emoji} **${player.name}** mise **${fmt(bet)}** ${config.rbEmoji} · ${g.label}${text ? ` · ${text}` : ''}`);
+    }
     return e.id;
 }
 
@@ -84,6 +91,7 @@ function cancel(id) {
     if (i < 0) return;
     entries.splice(i, 1);
     hub?.broadcastAll({ type: 'feed:cancel', id });
+    dropLine(id);
 }
 
 /** met a jour une mise en cours (ex. Plinko : la rafale grossit) */
@@ -94,6 +102,10 @@ function grow(id, { bet, allin, balBefore }) {
     if (allin && balBefore > ALLIN_MIN) e.allin = true;
     e.tier = tierOf(e.bet, e.allin);
     hub?.broadcastAll({ type: 'feed:bet', entry: pub(e) });
+    if (e.bet >= DISCORD_MIN || e.allin) {
+        const g = GAMES[e.game] || { label: e.game, emoji: '🎲' };
+        remember(e.id, `⏳ ${g.emoji} **${e.player.name}** mise **${fmt(e.bet)}** ${config.rbEmoji} · ${g.label}${e.text ? ` · ${e.text}` : ''}`);
+    }
 }
 
 /**
@@ -123,7 +135,16 @@ async function finish(id, { net, mult = null, text = null, winner = null, player
         db.exec('INSERT INTO gamble_log (id_user, game, bet, net, allin, at, day) VALUES (?, ?, ?, ?, ?, ?, ?)', [uid, e.game, bet, n, e.allin ? 1 : 0, Date.now(), day])
             .catch((err) => log.warn('[feed] journal', err.message));
     }
-    if (e.bet >= DISCORD_MIN || e.allin) postDiscord(e, who).catch((err) => log.warn('[feed] #bot', err.message));
+    if (e.bet >= DISCORD_MIN || e.allin || Math.abs(e.net) >= DISCORD_MIN) {
+        const g = GAMES[e.game] || { label: e.game, emoji: '🎲' };
+        const won = e.net > 0;
+        const lol = !won && (e.allin || Math.abs(e.net) >= 2000) ? ' 🤣' : '';
+        const line = won
+            ? `📈 ${g.emoji} **${who.name}** **+${fmt(e.net)}** ${config.rbEmoji} · ${g.label}`
+            : `📉 ${g.emoji} **${who.name}** **${fmt(e.net)}** ${config.rbEmoji} · ${g.label}${lol}`;
+        remember(e.id, line);
+        if (e.gif) postDiscord(e, who).catch((err) => log.warn('[feed] #bot', err.message));
+    }
 }
 
 function snapshot() {
@@ -141,7 +162,59 @@ async function gifUrl(userId) {
 }
 
 // ---------------------------------------------------------------------------
-// #bot
+// Tribune : UN message vivant dans #bot. Le vocal n'est plus obligatoire pour voir les gros paris.
+// ---------------------------------------------------------------------------
+const board = [];
+
+async function loadBoard() {
+    const raw = await db.getSetting('tribune_lines', '[]');
+    const parsed = JSON.parse(raw || '[]');
+    if (Array.isArray(parsed)) board.splice(0, board.length, ...parsed.slice(-8));
+}
+
+function remember(id, text) {
+    const i = board.findIndex((x) => x.id === id);
+    if (i >= 0) board[i].text = text;
+    else board.push({ id, text });
+    while (board.length > 8) board.shift();
+    db.setSetting('tribune_lines', JSON.stringify(board)).catch(() => {});
+    paintTribune().catch((err) => log.warn('[tribune]', err.message));
+}
+
+function dropLine(id) {
+    const i = board.findIndex((x) => x.id === id);
+    if (i < 0) return;
+    board.splice(i, 1);
+    db.setSetting('tribune_lines', JSON.stringify(board)).catch(() => {});
+    paintTribune().catch((err) => log.warn('[tribune]', err.message));
+}
+
+async function paintTribune() {
+    if (!client || !board.length) return;
+    const ch = await channels.find(client, 'bot');
+    if (!ch) return;
+    const embed = new EmbedBuilder()
+        .setColor('#6b2d3c')
+        .setTitle('Tribune du casino')
+        .setDescription(`${[...board].reverse().map((l) => l.text).join('\n')}\n-# Les gros paris de l'app. La table reste dans le vocal.`)
+        .setTimestamp();
+    const id = await db.getSetting('tribune_msg');
+    const at = Number(await db.getSetting('tribune_at', '0'));
+    const stale = Date.now() - at > 2 * 3600 * 1000;
+    if (id && !stale) {
+        const msg = await ch.messages.fetch(id).catch(() => null);
+        if (msg) {
+            await msg.edit({ embeds: [embed] });
+            return;
+        }
+    }
+    const msg = await ch.send({ embeds: [embed] });
+    await db.setSetting('tribune_msg', msg.id);
+    await db.setSetting('tribune_at', Date.now());
+}
+
+// ---------------------------------------------------------------------------
+// #bot : le GIF perso reste un message a part, le reste tient dans la tribune
 // ---------------------------------------------------------------------------
 async function postDiscord(e, who) {
     if (!client) return;
@@ -163,7 +236,7 @@ async function postDiscord(e, who) {
     const embed = new EmbedBuilder()
         .setColor(won ? (big ? '#2ecc71' : '#8fe3a1') : (big ? '#e74c3c' : '#ff8a7a'))
         .setTitle(title)
-        .setDescription(`${line}\n-# 🚀 joué dans l'app (vocal → Activités)`);
+        .setDescription(`${line}\n-# ${e.where === 'chat' ? 'joué dans le chat' : 'joué dans l\'app (vocal, sur PC)'}`);
     if (e.gif) embed.setImage(e.gif);
     const u = await client.users.fetch(who.id).catch(() => null);
     if (u) embed.setThumbnail(u.displayAvatarURL({ extension: 'png', size: 128 }));

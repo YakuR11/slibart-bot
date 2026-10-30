@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, Partials, ActivityType, Events } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, ActivityType, Events, PermissionFlagsBits } = require('discord.js');
 const config = require('./config');
 const db = require('./db');
 const log = require('./lib/logger');
@@ -8,6 +8,21 @@ const dd = require('./lib/ddragon');
 const media = require('./lib/media');
 const scheduler = require('./lib/scheduler');
 const activity = require('./activity/server');
+const ops = require('./lib/ops');
+
+// Voir, ecrire, embeds, fichiers, historique, reactions, gerer les messages, emojis externes, @here.
+// Pas Administrateur : le bot n'en a pas besoin, et un lien public ne doit pas le demander.
+const INVITE_PERMS = [
+    PermissionFlagsBits.ViewChannel,
+    PermissionFlagsBits.SendMessages,
+    PermissionFlagsBits.EmbedLinks,
+    PermissionFlagsBits.AttachFiles,
+    PermissionFlagsBits.ReadMessageHistory,
+    PermissionFlagsBits.AddReactions,
+    PermissionFlagsBits.ManageMessages,
+    PermissionFlagsBits.UseExternalEmojis,
+    PermissionFlagsBits.MentionEveryone,
+].reduce((a, b) => a | b, 0n);
 
 if (!config.token) {
     log.error('DISCORD_TOKEN manquant dans le .env');
@@ -41,10 +56,10 @@ client.once(Events.ClientReady, async (c) => {
     }
     media.start();
     scheduler.start(c);
-    activity.start(c);
+    const activityServer = await activity.start(c);
 
-    // lien pour inviter le bot (voir/ecrire, embeds, fichiers, reactions, gerer messages, emojis externes, @here pour la happy hour)
-    log.info(`Inviter le bot : https://discord.com/oauth2/authorize?client_id=${c.user.id}&scope=bot+applications.commands&permissions=519232`);
+    log.info(`Inviter le bot : https://discord.com/oauth2/authorize?client_id=${c.user.id}&scope=bot+applications.commands&permissions=${INVITE_PERMS}`);
+    await ops.up(c, !!activityServer);
 
     await handler.registerSlash(c);
     dd.syncChampions().catch((e) => log.warn('[champions] sync :', e.message));
@@ -68,8 +83,15 @@ client.on(Events.Error, (e) => log.error('[client]', e.message));
 process.on('unhandledRejection', (e) => log.error('[unhandledRejection]', e));
 process.on('uncaughtException', (e) => log.error('[uncaughtException]', e));
 
+let stopping = false;
 async function shutdown(sig) {
+    if (stopping) return;
+    stopping = true;
     log.info(`${sig} recu, arret propre...`);
+    await Promise.race([
+        ops.down(client, sig),
+        new Promise((r) => setTimeout(r, 4000)),
+    ]);
     await client.destroy().catch(() => {});
     await db.close();
     process.exit(0);

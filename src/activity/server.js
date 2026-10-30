@@ -17,6 +17,7 @@ const games = require('./games');
 const life = require('./life');
 const loto = require('../lib/loto');
 const skins = require('../lib/skins');
+const sportApp = require('./sports');
 
 const ROOT = path.join(__dirname, '..', '..', 'activity');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2' };
@@ -200,7 +201,13 @@ async function handleReq(ws, room, s, op, a = {}) {
         case 'duel.play': return games.duelPlay(player, a);
         case 'work.state': return life.workState(s.id);
         case 'work.click': return life.workClick(player, a.kind);
-        case 'map': return life.mapData(userInfo);
+        case 'map': {
+            const data = await life.mapData(userInfo);
+            const mine = data.houses.find((h) => h.id === s.id);
+            return { ...data, you: mine ? mine.plot : null, full: !mine && data.houses.length >= data.plots };
+        }
+        case 'sports.list': return sportApp.list(s.id);
+        case 'sports.bet': return sportApp.bet(s.id, a);
         case 'profile': return life.profileData(String(a.id || s.id), userInfo);
         case 'gif.get': return { owned: await skins.hasGif(s.id), url: await skins.gifOf(s.id), price: skins.GIF_PRICE };
         case 'gif.set': return skins.setGif(s.id, a.url);
@@ -399,7 +406,7 @@ function serveStatic(req, res, route, query) {
     fs.createReadStream(full).pipe(res);
 }
 
-function start(discordClient) {
+async function start(discordClient) {
     const a = config.activity;
     if (!a.enabled) return null;
     if (!a.clientSecret && !a.dev) {
@@ -514,6 +521,11 @@ function start(discordClient) {
     setInterval(() => wss.clients.forEach((ws) => ws.readyState === 1 && ws.ping()), 25_000).unref();
     setInterval(() => { for (const [k, s] of sessions) if (s.exp < Date.now()) sessions.delete(k); }, 3600_000).unref();
 
+    try {
+        await crash.resume();
+    } catch (e) {
+        log.error('[crash] reprise', e);
+    }
     server.listen(a.port, () => log.info(`[activity] Plinko sur le port ${a.port}${a.dev ? ' (mode test ACTIVE)' : ''}`));
     return server;
 }

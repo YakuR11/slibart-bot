@@ -88,18 +88,12 @@
     { "match": "wawa", "reply": "$wa", "repeat": 5 }
   ],
 
-  "randomHeckle": {
-    "userId": "987489832089571379",
-    "chance": 60,
-    "message": "FERME TA GUEULE RIGEL"
-  },
-
   "rollCommands": ["$wa", "$ha", "$ma", "$w", "$m", "$h"],
 
   "insults": [
-    "pute", "fdp", "pd", "tana", "salope", "bitch", "tdc", "cul", "salaud", "bougnoule", "bougn",
-    "meteque", "connard", "con", "encule", "sodomite", "negre", "negro", "nigga", "negresse",
-    "batard", "shit", "pedo", "pedophile", "bamboula", "noiraud", "fuck", "hoe", "hoes", "merde",
+    "pute", "fdp", "pd", "tana", "salope", "bitch", "tdc", "cul", "salaud",
+    "connard", "con", "encule", "sodomite",
+    "batard", "shit", "pedo", "pedophile", "fuck", "hoe", "hoes", "merde",
     "putain", "connerie", "enfoire", "enfoirer", "nique", "tdb", "tg", "ntm", "slp", "suce",
     "ftg", "ftgl", "ntmlp", "tgl", "fizdeup", "fisdeup", "bite", "chatte", "chienne", "gueule"
   ]
