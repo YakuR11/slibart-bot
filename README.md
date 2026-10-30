@@ -67,7 +67,7 @@ Tout est dans `config/content.json` : images de `=cold`/`=remember`/`=bubble`, p
 |---|---|
 | Général | `cold` `remember` `bubble` `trad [langue] <texte>` `musique <type>` `changemot <mot>` `motfav [@user]` |
 | Profil | `profile [@user]` (`p`) · `set <img\|acc\|bio> <valeur>` · `setimg` `setbio` `setacc` · `wacount` |
-| Capitalism | `bank` (`b`) · `work` (`w`) · `gw` · `daily` · `rsa` · `rob <@user>` · `give <@user> <montant>` · `shop` · `buy <slave\|cave\|cadenas>` · `mine` (`m`) |
+| Capitalism | `bank` (`b`) · `work` (`w`) · `gw` · `daily` · `rsa` · `rob <@user>` · `give <@user> <montant>` · `shop` · `buy <slave\|cave\|contremaitre\|cadenas>` · `mine` (`m`) |
 | Casino | `plinko` (interface) · `gamble <r\|b\|g> <mise>` (`g`) · `slots <mise>` · `blackjack <mise>` (`bj`) · `mines <mise> [bombes]` · `crash <mise> [auto]` · `loto [tickets]` · `duel <@user> <mise>` |
 | Paris | `matchs [foot\|lol]` · `parier <n°> <1\|N\|2> <mise>` · `mesparis` · `elo` |
 | Progression | `cd` · `coffres` · `ouvrir` · `quetes` (`q`) · `succes` · `niveau` (`lvl`) · `rappels` |
@@ -193,7 +193,7 @@ L'activité Discord (la fenêtre dans un vocal) ne s'ouvre pas sur téléphone. 
 - **#bot** : un seul message, la tribune, se met à jour avec les gros paris (≥ 500). Le GIF perso d'un gros gain reste un message à part. Pas besoin d'être dans le vocal pour voir la tribune.
 - **#daily** : récap du jour à 23h55 (rois du jour, gros perdants, plus gros gain et plus grosse perte par jeu, le plus accro). `=recap` pour l'envoyer tout de suite.
 - **Paris** : onglet à côté du casino, mêmes tickets que `=parier`.
-- **Work** : Work et Gamblework sont des morceaux du salaire de `=work` et `=gw` (une demi-heure). Les clics ne s'ajoutent pas à la commande. La mine est la même pioche que `=mine`, une fois par minute. Un « ! » apparaît sur l'onglet quand un clic est dispo. Les quotas sont en base : un redémarrage ne les remet pas à zéro.
+- **Work** : Work et Gamblework sont des morceaux du salaire de `=work` et `=gw` (une demi-heure). Les clics ne s'ajoutent pas à la commande. La mine est la même pioche que `=mine`, une fois par minute. Un « ! » apparaît sur l'onglet quand un clic est dispo. Les quotas sont en base : un redémarrage ne les remet pas à zéro. `=buy contremaitre` (100 000 RB, une fois) encaisse le `=work` tout seul et fait passer chaque esclave de +25 à +45 RB par demi-heure. Même pot : le chat, l'app et le contremaître ne paient pas deux fois.
 - **Carte** : 20 maisons, pas une par membre. La 21e personne n'en a pas. Sa pp et son nom au-dessus, ses caves dessinées en dessous. Plus on a de RB, plus la maison est grande (+10 % max à 10 000) et plus elle brille. `=initmap` place les maisons des membres déjà connus, dans la limite des 20 places.
 - **Profils** : clic sur n'importe quelle pp pour voir le profil complet (image, badges, stats, niveau…).
 - **Boutique** : cadres d'avatar à 500 RB (décorations, drapeaux, anneaux), dont certains ne tombent que des coffres, et GIF de victoire perso à 1 000 RB (lien Tenor ou Giphy). Les anciens skins de billes, traînées et tables ont été remboursés automatiquement.

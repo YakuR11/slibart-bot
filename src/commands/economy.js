@@ -71,6 +71,13 @@ async function shopEmbed(ctx) {
             `🏠 **Cave** · \`${config.prefix}buy cave\`\n` +
             `> Prochaine : **${fmt(cavePrice(p.cavecount))}** ${RB()} · puis ${fmt(cavePrice(p.cavecount + 1))}, ${fmt(cavePrice(p.cavecount + 2))}...\n` +
             `> Pas de limite · +70% de prix à chaque cave · 1 achat toutes les 1h30\n\n` +
+            `⏱️ **Contremaître** · \`${config.prefix}buy contremaitre\`\n` +
+            `> **${fmt(wages.FOREMAN_PRICE)}** ${RB()}, une seule fois${p.foreman ? ' · **déjà en poste**' : ''}\n` +
+            `> Il encaisse le \`${config.prefix}work\` tout seul, chaque demi-heure\n` +
+            `> Chaque esclave passe de +${WORK_PER_SLAVE} à **+${WORK_PER_SLAVE + wages.FOREMAN_EXTRA}** ${RB()} par créneau\n` +
+            `> Là, ça ferait **${fmt(wages.workAmount(p.slavecount, { foreman: true }))}** ${RB()} / 30 min` +
+            `${p.foreman ? '' : ` (aujourd'hui **${fmt(wages.workAmount(p.slavecount))}**)`}\n` +
+            `> Même pot que le chat et l'app : pas payé deux fois. Pas le \`gw\`, pas la mine\n\n` +
             `🔒 **Cadenas** · \`${config.prefix}buy cadenas [nb]\`\n` +
             `> **${fmt(LOCK_PRICE)}** ${RB()} · bloque une tentative de \`${config.prefix}rob\` contre toi`,
         );
@@ -96,7 +103,7 @@ module.exports = [
                 .addFields(
                     { name: '👥 Esclaves', value: `${p.slavecount} / ${p.cavecount * SLAVES_PER_CAVE}`, inline: true },
                     { name: '🏠 Caves', value: `${p.cavecount} · prochaine ${fmt(cavePrice(p.cavecount))}`, inline: true },
-                    { name: '💼 Revenu =work', value: `${fmt(WORK_BASE + WORK_PER_SLAVE * p.slavecount)} ${RB()} / 30 min`, inline: true },
+                    { name: '💼 Revenu =work', value: `${fmt(wages.workAmount(p.slavecount, { foreman: p.foreman }))} ${RB()} / 30 min${p.foreman ? '\ncontremaître en poste' : ''}`, inline: true },
                     { name: '🏠 Entretien', value: p.cavecount ? `${fmt(upkeep.caveFee(p.cavecount))} ${RB()} / jour` : 'pas de cave', inline: true },
                     { name: '💸 Taxe', value: `1 % au-dessus de ${fmt(upkeep.TAX_FLOOR)} (max ${fmt(upkeep.TAX_CAP)} / jour)`, inline: true },
                     { name: '📈 Gains casino', value: `${fmt(p.wincount)} ${RB()}`, inline: true },
@@ -115,17 +122,19 @@ module.exports = [
         async run(ctx) {
             const p = await db.getProfile(ctx.user.id);
             const m = await boost.mult();
-            const bonus = WORK_PER_SLAVE * p.slavecount;
-            const pot = (WORK_BASE + bonus) * m;
+            const bonus = (WORK_PER_SLAVE + (p.foreman ? wages.FOREMAN_EXTRA : 0)) * p.slavecount;
+            const pot = wages.workAmount(p.slavecount, { foreman: p.foreman, mult: m });
             const got = await wages.claim(ctx.user.id, 'work', pot, pot, { all: true });
             if (got.paid <= 0) {
-                return ctx.reply(`⏳ **${ctx.displayName}**, salaire déjà pris (chat ou app). Prochain ${ui.ts(got.slotEnd)}.`);
+                const who = p.foreman ? 'chat, app ou contremaître' : 'chat ou app';
+                return ctx.reply(`⏳ **${ctx.displayName}**, salaire déjà pris (${who}). Prochain ${ui.ts(got.slotEnd)}.`);
             }
             const pay = await eco.addRb(ctx.user.id, got.paid);
-            const partial = got.already ? ` · ${fmt(got.already)} déjà pris dans l'app` : '';
+            const partial = got.already ? ` · ${fmt(got.already)} déjà pris` : '';
+            const boss = p.foreman ? ' · ⏱️ contremaître' : '';
             await ctx.reply(
                 `**+${fmt(pay.net)}** ${RB()} pour **${ctx.displayName}** !${happyTag(m)}${credit.note(pay.cut, pay.debt)}\n` +
-                `-# 💼 Travail ${WORK_BASE}${bonus ? ` · 📜 Bonus esclaves +${fmt(bonus)}` : ''}${partial} · prochain ${ui.ts(got.slotEnd)}`,
+                `-# 💼 Travail ${WORK_BASE}${bonus ? ` · 📜 Bonus esclaves +${fmt(bonus)}` : ''}${boss}${partial} · prochain ${ui.ts(got.slotEnd)}`,
             );
             if (got.fresh) await progress.track(ctx, { work: 1 });
         },
@@ -223,14 +232,14 @@ module.exports = [
         name: 'buy',
         aliases: ['acheter'],
         category: 'eco',
-        description: 'Achete un esclave ou une cave',
-        usage: '<slave|cave> [nb|max]',
+        description: 'Achete un esclave, une cave ou le contremaitre',
+        usage: '<slave|cave|contremaitre> [nb|max]',
         options: [
-            { name: 'item', type: 'string', description: 'Quoi acheter', choices: [{ name: 'esclave', value: 'slave' }, { name: 'cave', value: 'cave' }, { name: 'cadenas', value: 'cadenas' }] },
+            { name: 'item', type: 'string', description: 'Quoi acheter', choices: [{ name: 'esclave', value: 'slave' }, { name: 'cave', value: 'cave' }, { name: 'contremaître', value: 'contremaitre' }, { name: 'cadenas', value: 'cadenas' }] },
             { name: 'quantite', type: 'string', description: 'Nombre ou max (esclaves)' },
         ],
         async run(ctx, { item, quantite }) {
-            const what = { esclave: 'slave', slaves: 'slave', esclaves: 'slave', caves: 'cave', lock: 'cadenas', cadenas: 'cadenas', cadena: 'cadenas' }[item?.toLowerCase()] || item?.toLowerCase();
+            const what = { esclave: 'slave', slaves: 'slave', esclaves: 'slave', caves: 'cave', lock: 'cadenas', cadenas: 'cadenas', cadena: 'cadenas', contremaitre: 'contremaitre', 'contremaître': 'contremaitre', foreman: 'contremaitre', regisseur: 'contremaitre', 'régisseur': 'contremaitre' }[item?.toLowerCase()] || item?.toLowerCase();
             if (!what) return ctx.reply({ embeds: [await shopEmbed(ctx)] });
 
             if (what === 'slave') {
@@ -274,6 +283,27 @@ module.exports = [
                 if (result.err) return ctx.fail(result.err);
                 await cd.set(ctx.user.id, 'cave', CAVE_CD);
                 return ctx.reply(`🏠 **${ctx.displayName}** a acheté sa cave n°${result.total} pour **${fmt(result.price)}** ${RB()} (${result.total * SLAVES_PER_CAVE} places).\n-# prochaine cave : ${fmt(cavePrice(result.total))}`);
+            }
+
+            if (what === 'contremaitre') {
+                const result = await db.tx(async (conn) => {
+                    await db.ensureProfile(ctx.user.id, conn);
+                    const [[p]] = await conn.query('SELECT rb, foreman, slavecount FROM profile WHERE id_user = ? FOR UPDATE', [ctx.user.id]);
+                    if (Number(p.foreman)) return { err: 'Ton contremaître est déjà en poste.' };
+                    const price = wages.FOREMAN_PRICE;
+                    if (Number(p.rb) < price) return { err: `Il te faut **${fmt(price)}** ${RB()} (tu as ${fmt(p.rb)}).` };
+                    const [upd] = await conn.query('UPDATE profile SET rb = rb - ?, foreman = 1 WHERE id_user = ? AND foreman = 0 AND rb >= ?', [price, ctx.user.id, price]);
+                    if (!upd.affectedRows) return { err: 'Achat pas passé, réessaie.' };
+                    const rate = wages.workAmount(p.slavecount, { foreman: true });
+                    return { price, rate, slaves: Number(p.slavecount) };
+                });
+                if (result.err) return ctx.fail(result.err);
+                return ctx.reply(
+                    `⏱️ **${ctx.displayName}** embauche un contremaître pour **${fmt(result.price)}** ${RB()}.\n` +
+                    `Il encaisse **${fmt(result.rate)}** ${RB()} toutes les 30 min` +
+                    `${result.slaves ? ` (${result.slaves} esclave${result.slaves > 1 ? 's' : ''} à +${WORK_PER_SLAVE + wages.FOREMAN_EXTRA})` : ''}, même si t'es pas là.\n` +
+                    `-# même pot que \`${config.prefix}work\` : pas payé deux fois`,
+                );
             }
 
             if (what === 'cadenas') {

@@ -4,8 +4,16 @@ const db = require('../db');
 
 const WORK_BASE = 50;
 const WORK_PER_SLAVE = 25;
+const FOREMAN_EXTRA = 20; // par esclave, en plus, une fois le contremaitre achete
+const FOREMAN_PRICE = 100_000;
 const SLOT_MS = 30 * 60 * 1000;
 const GW_AVG = 62.5;
+
+/** salaire d'un creneau de 30 min. Le contremaitre ne change pas la cadence, il paie plus par esclave. */
+function workAmount(slaves, { foreman = false, mult = 1 } = {}) {
+    const per = WORK_PER_SLAVE + (foreman ? FOREMAN_EXTRA : 0);
+    return (WORK_BASE + per * Math.max(0, Math.trunc(Number(slaves) || 0))) * mult;
+}
 
 const slotEnd = (now = Date.now()) => Math.ceil((now + 1) / SLOT_MS) * SLOT_MS;
 
@@ -69,4 +77,7 @@ async function peek(userId, kind) {
     return { pot, paid, left: Math.max(0, pot - paid), slotEnd: Number(row.slot_end) };
 }
 
-module.exports = { WORK_BASE, WORK_PER_SLAVE, SLOT_MS, GW_AVG, slotEnd, sliceOf, claim, peek };
+module.exports = {
+    WORK_BASE, WORK_PER_SLAVE, FOREMAN_EXTRA, FOREMAN_PRICE, SLOT_MS, GW_AVG,
+    workAmount, slotEnd, sliceOf, claim, peek,
+};
