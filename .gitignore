@@ -4,3 +4,6 @@ node_modules/
 slip.sql
 backups/
 activity/dist/
+activity/music/*.mp3
+activity/music/*.ogg
+activity/music/*.m4a

@@ -16,6 +16,7 @@ import { MapView } from './views/map.js';
 import { ShopView } from './views/shop.js';
 import { openProfile } from './views/profile.js';
 import { icon } from './icons.js';
+import { Music } from './music.js';
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Math.trunc(Number(n) || 0).toLocaleString('fr-FR').replace(/ | /g, ' ');
@@ -205,6 +206,7 @@ function bigWin(rec, pos) {
 function showBigWin(mult, net, bet) {
     const tier = tierOf(mult);
     if (!tier) return;
+    music.duck(3500);
     const seconds = [0, 1.4, 2.4, 3.6][tier];
     sound.bigWin(tier, seconds);
 
@@ -768,8 +770,10 @@ const setMuteIcon = (m) => {
     $('mute').innerHTML = icon(m ? 'mute' : 'volume', 18);
     $('mute').setAttribute('aria-label', m ? 'Remettre le son' : 'Couper le son');
 };
-$('mute').addEventListener('click', () => setMuteIcon(sound.toggle()));
+$('mute').addEventListener('click', () => { setMuteIcon(sound.toggle()); music.sync(); });
 setMuteIcon(sound.muted);
+const music = new Music($('music'), () => sound.muted);
+$('music').innerHTML = icon('music', 18);
 // icones SVG dans la navigation (pas d'emojis en guise d'icones)
 const NAV_ICONS = { casino: 'casino', paris: 'trophy', map: 'map', shop: 'bag', plinko: 'target', crash: 'rocket', roulette: 'roulette', slots: 'slots', blackjack: 'cards', mines: 'bomb', loto: 'ticket', duel: 'swords' };
 for (const b of document.querySelectorAll('[data-page], #games [data-game]')) {
@@ -833,6 +837,7 @@ function req(op, args = {}) {
 // gros moments partages : tapis / mise >= 2000 gagnee (+ GIF perso)
 // ---------------------------------------------------------------------------
 function hype(e) {
+    music.duck(3000);
     const el = $('hype');
     const won = e.net > 0;
     const who = e.winner && e.vs ? (e.winner === e.player.id ? e.player : e.vs) : e.player;
