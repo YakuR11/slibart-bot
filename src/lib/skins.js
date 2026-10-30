@@ -85,15 +85,14 @@ async function buyGif(userId) {
 }
 
 /**
- * Lien de GIF accepte : un vrai fichier .gif/.webp/.mp4 de Tenor ou Giphy (ce que donne "Copier le lien"
- * sur un GIF dans Discord), ou une page Giphy (convertie).
+ * Lien de GIF accepte : GIPHY uniquement (Tenor bloque le chargement de ses GIF hors de son site).
+ * Fichier direct (media*.giphy.com / i.giphy.com) ou page giphy.com/gifs/... (convertie).
  */
 function normalizeGif(raw) {
     let url;
     try { url = new URL(String(raw).trim()); } catch { return null; }
     if (url.protocol !== 'https:') return null;
     const host = url.hostname.toLowerCase();
-    if (/^(media\d*\.)?tenor\.com$/.test(host) && /\.(gif|webp)$/i.test(url.pathname) && host !== 'tenor.com') return url.href;
     if (/^(i|media\d*)\.giphy\.com$/.test(host) && /\.(gif|webp)$/i.test(url.pathname)) return url.href;
     const page = host.endsWith('giphy.com') && url.pathname.match(/^\/gifs\/(?:.*-)?([A-Za-z0-9]{8,})\/?$/);
     if (page) return `https://i.giphy.com/media/${page[1]}/giphy.gif`;
@@ -107,13 +106,20 @@ async function setGif(userId, raw) {
         return { ok: true, url: null };
     }
     const url = normalizeGif(raw);
-    if (!url) return { error: 'Colle un lien de GIF Tenor ou Giphy (clic droit sur le GIF → Copier le lien).' };
+    if (!url) {
+        const tenor = /tenor\.com/i.test(String(raw));
+        return { error: tenor
+            ? 'Les liens Tenor ne marchent pas : prends ton GIF sur giphy.com et colle son lien.'
+            : 'Colle un lien GIPHY (giphy.com/gifs/… ou media.giphy.com/…/giphy.gif).' };
+    }
     await db.setSetting(`gif:${userId}`, url);
     return { ok: true, url };
 }
 
 async function gifOf(userId) {
-    return (await hasGif(userId)) ? (await db.getSetting(`gif:${userId}`)) || null : null;
+    if (!(await hasGif(userId))) return null;
+    // les anciens liens Tenor enregistres ne s'affichent pas : on fait comme s'il n'y avait pas de GIF
+    return normalizeGif((await db.getSetting(`gif:${userId}`)) || '') || null;
 }
 
 // ---------------------------------------------------------------------------

@@ -614,7 +614,6 @@ input, .av-wrap.click { touch-action: manipulation; }
     .balance { transition: none; }
 }
 
-
 /* ===================================================================== */
 /* onglets                                                                */
 /* ===================================================================== */
@@ -863,7 +862,6 @@ input, .av-wrap.click { touch-action: manipulation; }
     .shop-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); overflow: visible; }
     .crash-wrap { height: auto; aspect-ratio: 1 / 0.8; max-height: 60vh; }
 }
-
 
 /* ===================================================================== */
 /* v3 : coquille (centre des paris a gauche + pages)                      */
@@ -1393,8 +1391,8 @@ button.av-wrap { padding: 0; border: 0; background: none; line-height: 0; }
     .lf { flex: 0 0 auto; max-width: 240px; }
 }
 @media (max-width: 760px) {
-    .wk-btns { grid-template-columns: 1fr; }
-    .wk-cave, .mp-wrap { min-height: 320px; }
+    
+    .mp-wrap { min-height: 320px; }
     .game-stage { min-height: 360px; height: auto !important; aspect-ratio: auto !important; max-height: none !important; }
     .pages, .page, .playfield, .stage { min-width: 0; max-width: 100%; }
     .sl-reel { width: 74px; }
@@ -1402,104 +1400,20 @@ button.av-wrap { padding: 0; border: 0; background: none; line-height: 0; }
     .du-move { width: 76px; }
 }
 
-
 /* ===================================================================== */
-/* Work (dashboard) et Carte (split pane), v4                             */
+/* Carte (split pane) et pages, v4                                      */
 /* ===================================================================== */
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .ic { flex: none; }
 .tabs button, .games button { display: inline-flex; align-items: center; gap: 8px; }
 .icon-btn { display: inline-grid; place-items: center; color: var(--cream); }
 
-.page.wk, .page.mp { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 16px; }
+.page.mp { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 16px; }
 .page.mp { grid-template-rows: auto minmax(0, 1fr); }
-.wk-head h2 { margin: 0; font-family: var(--font-show); font-weight: 400; font-size: 32px; line-height: 1.1; color: var(--brass-hi); }
-.wk-head p { margin: 4px 0 0; color: var(--cream-dim); font-size: 14px; }
+.pg-head h2 { margin: 0; font-family: var(--font-show); font-weight: 400; font-size: 32px; line-height: 1.1; color: var(--brass-hi); }
+.pg-head p { margin: 4px 0 0; color: var(--cream-dim); font-size: 14px; }
 
 /* bande de chiffres */
-.wk-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.wk-kpi {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    grid-template-rows: auto auto;
-    column-gap: 8px;
-    align-items: center;
-    padding: 12px 16px;
-    border-radius: 12px;
-    background: rgba(36, 7, 14, 0.7);
-    border: 1px solid rgba(217, 164, 65, 0.25);
-    color: var(--brass-hi);
-}
-.wk-kpi .ic { grid-row: span 2; }
-.wk-kpi-l { font-size: 12px; color: var(--cream-dim); }
-.wk-kpi-v { font-size: 20px; font-weight: 600; color: var(--cream); font-variant-numeric: tabular-nums; line-height: 1.2; }
-
-.wk-body { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; min-height: 0; }
-.wk-scene { position: relative; min-height: 280px; border-radius: 16px; overflow: hidden; border: 1px solid rgba(217, 164, 65, 0.45); background: #1a110d; }
-.wk-scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.wk-pops { position: absolute; inset: 0; pointer-events: none; }
-.wk-pop { position: absolute; transform: translateX(-50%); font-weight: 600; font-size: 16px; color: #fff3c4; text-shadow: 0 0 10px rgba(255, 215, 106, 0.85), 0 1px 2px #000; animation: wk-rise 1100ms ease-out forwards; white-space: nowrap; }
-@keyframes wk-rise { from { opacity: 0; transform: translate(-50%, 8px); } 20% { opacity: 1; } to { opacity: 0; transform: translate(-50%, -40px); } }
-
-.wk-side { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 16px; min-height: 0; }
-.wk-actions { display: grid; gap: 8px; }
-.wk-action {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: "ic main go" "info info info";
-    align-items: center;
-    gap: 10px 12px;
-    padding: 12px 14px;
-    border-radius: 14px;
-    background: rgba(36, 7, 14, 0.7);
-    border: 1px solid rgba(217, 164, 65, 0.22);
-    transition: border-color 150ms ease;
-}
-.wk-action.ready { border-color: rgba(243, 207, 122, 0.6); }
-.wk-ic { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; background: rgba(217, 164, 65, 0.12); color: var(--brass-hi); }
-.wk-ic { grid-area: ic; }
-.wk-main { grid-area: main; min-width: 0; display: grid; gap: 2px; }
-.wk-action .wk-go { grid-area: go; }
-.wk-info { grid-area: info; display: grid; gap: 6px; }
-.wk-line { white-space: nowrap; }
-.wk-main h3 { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.2; }
-.wk-main p { margin: 0; font-size: 12px; color: var(--cream-dim); }
-.wk-line { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; font-variant-numeric: tabular-nums; }
-.wk-est { color: var(--brass-hi); }
-.wk-status { color: var(--cream-dim); }
-.wk-meter { display: flex; gap: 2px; }
-.wk-meter i { flex: 1; height: 4px; border-radius: 2px; background: rgba(247, 235, 215, 0.12); }
-.wk-meter i.on { background: var(--brass-hi); }
-.wk-cd { height: 2px; border-radius: 1px; background: rgba(247, 235, 215, 0.08); overflow: hidden; }
-.wk-cd i { display: block; height: 100%; background: var(--coral); transform-origin: left; transform: scaleX(0); transition: transform 450ms linear; }
-.wk-action.ready .wk-cd i { background: transparent; }
-.wk-go {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 44px;
-    padding: 0 16px;
-    border: 0;
-    border-radius: 10px;
-    background: var(--brass);
-    color: var(--lacquer-deep);
-    font-weight: 600;
-    font-size: 14px;
-    transition: transform 100ms ease-out, opacity 150ms ease;
-}
-.wk-go:hover { background: var(--brass-hi); }
-.wk-go:active { transform: translateY(2px); }
-.wk-go:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.wk-logbox { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; border-radius: 14px; background: rgba(36, 7, 14, 0.7); border: 1px solid rgba(217, 164, 65, 0.22); overflow: hidden; }
-.wk-logbox h3 { margin: 0; padding: 12px 16px; font-size: 14px; font-weight: 600; border-bottom: 1px solid rgba(217, 164, 65, 0.18); }
-.wk-log { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
-.wk-log li { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: baseline; padding: 8px 16px; border-bottom: 1px solid rgba(247, 235, 215, 0.06); font-size: 14px; }
-.wk-log li:last-child { border-bottom: 0; }
-.wk-t { font-size: 12px; color: var(--cream-dim); font-variant-numeric: tabular-nums; }
-.wk-log b { color: var(--win); font-weight: 600; font-variant-numeric: tabular-nums; }
-.wk-empty { display: grid !important; grid-template-columns: 1fr !important; gap: 4px; padding: 16px !important; }
-.wk-empty span { color: var(--cream-dim); font-size: 14px; }
 
 /* ---------- carte ---------- */
 .mp-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; min-height: 0; }
@@ -1558,9 +1472,9 @@ button.av-wrap { padding: 0; border: 0; background: none; line-height: 0; }
 .mp-empty .chip { justify-self: start; }
 
 @media (max-width: 1000px) {
-    .wk-body, .mp-body { grid-template-columns: minmax(0, 1fr); }
-    .wk-scene, .mp-map { min-height: 300px; height: 52vh; }
-    .wk-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .mp-body { grid-template-columns: minmax(0, 1fr); }
+    .mp-map { min-height: 300px; height: 52vh; }
+    
     .mp-side { max-height: 60vh; }
 }
 
@@ -1570,4 +1484,9 @@ button.av-wrap { padding: 0; border: 0; background: none; line-height: 0; }
 /* mouvement reduit : tout instantane, pas de boucle */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+}
+
+/* 4 onglets tiennent sur un telephone : on partage la largeur au lieu de scroller */
+@media (max-width: 520px) {
+    .tabs button { flex: 1 1 0; justify-content: center; padding: 8px 6px; gap: 6px; min-width: 0; }
 }

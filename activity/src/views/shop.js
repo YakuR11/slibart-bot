@@ -137,12 +137,12 @@ export class ShopView {
                 el('button.skin-btn', { type: 'button', text: this.confirm === 'gif' ? `Confirmer ${fmt(GIF_PRICE)} ?` : `${fmt(GIF_PRICE)} RB`, onclick: () => this.buyGif() })));
             return;
         }
-        const input = el('input.gif-input', { type: 'url', placeholder: 'https://media.tenor.com/… .gif', value: g.url || '' });
+        const input = el('input.gif-input', { type: 'url', placeholder: 'https://giphy.com/gifs/…', value: g.url || '' });
         const prev = el('div.gif-prev', {}, g.url ? el('img', { src: `gifp?u=${encodeURIComponent(g.url)}`, alt: '' }) : el('span', { text: 'Pas encore de GIF' }));
         this.grid.replaceChildren(el('article.gif-card.owned', {},
             prev,
             el('b', { text: 'Ton GIF de victoire' }),
-            el('p', { text: 'Dans Discord : clic droit sur un GIF → Copier le lien, puis colle-le ici (Tenor ou Giphy).' }),
+            el('p', { text: 'Uniquement des liens GIPHY : va sur giphy.com, ouvre ton GIF et copie le lien de la page. Les liens Tenor (ceux du sélecteur de GIF de Discord) ne marchent pas.' }),
             input,
             el('div.gif-actions', {},
                 el('button.skin-btn.own', { type: 'button', text: 'Enregistrer', onclick: () => this.saveGif(input.value) }),

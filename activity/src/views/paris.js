@@ -13,7 +13,7 @@ export class ParisView {
         this.list = el('div.pr-list');
         this.mine = el('div.pr-mine');
         page.append(
-            el('header.wk-head', {}, el('div', {},
+            el('header.pg-head', {}, el('div', {},
                 el('h2', { text: 'Paris' }),
                 el('p', { text: 'Avant le coup d\'envoi seulement. La cote est figée sur le ticket.' }))),
             el('div.pr-bar', {},
