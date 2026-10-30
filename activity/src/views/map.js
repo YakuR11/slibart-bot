@@ -56,7 +56,12 @@ export class MapView {
         this.visible = on;
         if (!on) return;
         this.resize();
-        const r = await this.app.req('map');
+        // au lancement la connexion temps reel peut ne pas etre encore ouverte : on reessaie en silence
+        let r = await this.app.req('map');
+        for (let k = 0; k < 12 && r.error && this.visible; k++) {
+            await new Promise((ok) => setTimeout(ok, 800));
+            r = await this.app.req('map');
+        }
         if (r.error) return this.app.toast(r.error, true);
         const first = !this.data;
         this.data = r;
@@ -619,7 +624,11 @@ export class MapView {
         if (img?.complete && img.naturalWidth) ctx.drawImage(img, x - r, ay - r, r * 2, r * 2);
         ctx.restore();
         const deco = decoImage(h.skins);
-        if (deco?.complete) ctx.drawImage(deco, x - r / 0.36, ay - r / 0.36, (r / 0.36) * 2, (r / 0.36) * 2);
+        // le cadre est un carre de 100 ou la pp occupe un cercle de rayon 36 : demi-cote = r * 50 / 36
+        const half = (r * 50) / 36;
+        if (deco?.complete) ctx.drawImage(deco, x - half, ay - half, half * 2, half * 2);
+        // le nom passe au-dessus du cadre (oreilles, couronne...) au lieu d'etre cache dessous
+        const nameY = ay - (deco ? half * 0.92 : r) - 5;
         if (rank === 1) this.crown(x + r * 0.7, ay - r * 0.85, r / 15);
         else if (RING[rank]) {
             // pastille de rang
@@ -665,9 +674,9 @@ export class MapView {
         ctx.lineWidth = 4 / this.cam.z;
         ctx.strokeStyle = 'rgba(10, 4, 8, 0.9)';
         const name = h.name.length > 16 ? `${h.name.slice(0, 15)}…` : h.name;
-        ctx.strokeText(name, x, ay - r - 5);
+        ctx.strokeText(name, x, nameY);
         ctx.fillStyle = RING[rank] && rank === 1 ? '#ffd24a' : me ? '#ffd76a' : '#f7ebd7';
-        ctx.fillText(name, x, ay - r - 5);
+        ctx.fillText(name, x, nameY);
     }
 
     crown(x, y, s) {
