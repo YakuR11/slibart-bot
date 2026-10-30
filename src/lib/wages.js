@@ -1,4 +1,4 @@
-// Salaire de la demi-heure : =work / =gw et les clics de l'app puisent dans le MEME pot.
+// Salaire de la demi-heure : =work / =gw et le contremaitre puisent dans le MEME pot.
 // Trente minutes de clics, ou un =work, c'est le meme argent. Pas les deux.
 const db = require('../db');
 

@@ -1,120 +1,9 @@
-// La "vie" dans l'app : page Work (clics limites par le nombre d'esclaves), carte du quartier,
-// fiches profil.
+// La "vie" dans l'app : carte du quartier et fiches profil. (Le work se fait par les commandes =w =gw =m.)
 const config = require('../config');
 const db = require('../db');
-const eco = require('../lib/economy');
-const boost = require('../lib/boost');
-const inv = require('../lib/inventory');
 const progress = require('../lib/progress');
 const skins = require('../lib/skins');
 const { fmt } = require('../lib/utils');
-
-// ===========================================================================
-// WORK : les clics remplacent =work / =gw, ils ne s'y ajoutent pas.
-// 30 min de clics = un salaire. La mine de l'app est la meme pioche que =mine (1 par minute).
-// Les quotas sont en base : un redemarrage ne les remet pas a zero.
-// ===========================================================================
-const WINDOW = 60_000;
-const MINE_CD = 60_000;
-const MINE_EV = 5.7;
-
-const randInt = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
-
-const wages = require('../lib/wages');
-const cd = require('../lib/cooldowns');
-
-function kindView(cap, windowLeft, moneyLeft, slotEnd, windowMs) {
-    if (moneyLeft <= 0) return { left: 0, next: slotEnd, cap, windowMs: Math.max(1000, slotEnd - Date.now()), note: 'salaire déjà pris' };
-    return { left: windowLeft.left, next: windowLeft.next, cap, windowMs, note: null };
-}
-
-async function workState(id) {
-    const p = await db.getProfile(id);
-    const n = Math.max(1, p.slavecount);
-    const m = await boost.mult();
-    const workPot = wages.workAmount(p.slavecount, { foreman: p.foreman, mult: m });
-    const gwPot = Math.round(wages.GW_AVG * m);
-    const [workSeen, gwSeen, workWin, gwWin, mineLeft] = await Promise.all([
-        wages.peek(id, 'work'),
-        wages.peek(id, 'gw'),
-        cd.windowState(id, 'click:work', n, WINDOW),
-        cd.windowState(id, 'click:gw', n, WINDOW),
-        cd.remaining(id, 'mine'),
-    ]);
-    const est = {
-        work: wages.sliceOf(workSeen?.pot || workPot, n),
-        gw: wages.sliceOf(gwSeen?.pot || gwPot, n),
-        mine: MINE_EV * m,
-    };
-    const out = { n, slaves: p.slavecount, foreman: p.foreman ? 1 : 0, est, boost: m, kinds: {} };
-    out.kinds.work = kindView(n, workWin, workSeen ? workSeen.left : workPot, workSeen?.slotEnd || wages.slotEnd(), WINDOW);
-    out.kinds.gw = kindView(n, gwWin, gwSeen ? gwSeen.left : gwPot, gwSeen?.slotEnd || wages.slotEnd(), WINDOW);
-    out.kinds.mine = {
-        left: mineLeft ? 0 : 1,
-        next: mineLeft ? Date.now() + mineLeft : 0,
-        cap: 1,
-        windowMs: MINE_CD,
-        note: null,
-    };
-    return out;
-}
-
-async function paySlice(player, kind, potNow, lockPot) {
-    const id = player.id;
-    const p = await db.getProfile(id);
-    const n = Math.max(1, p.slavecount);
-    const seen = await wages.peek(id, kind);
-    const pot = seen?.pot || potNow;
-    if (seen && seen.left <= 0) return { error: 'Salaire déjà pris pour cette demi-heure.', ...(await workState(id)) };
-    const gate = await cd.window(id, `click:${kind}`, n, WINDOW);
-    if (!gate.ok) return { error: 'Repose-toi un peu…', next: Date.now() + gate.resetIn, ...(await workState(id)) };
-    const slice = wages.sliceOf(pot, n);
-    const got = await wages.claim(id, kind, potNow, slice, { lockPot });
-    if (got.paid <= 0) return { error: 'Salaire déjà pris pour cette demi-heure.', ...(await workState(id)) };
-    const pay = await eco.addRb(id, got.paid);
-    if (got.fresh) {
-        progress.track(
-            { user: { id, username: player.name }, channel: null, displayName: player.name },
-            kind === 'gw' ? { gw: 1 } : { work: 1 },
-        ).catch(() => {});
-    }
-    return { ok: true, kind, gain: pay.net, cut: pay.cut, what: null, chest: false, balance: await eco.balance(id), ...(await workState(id)) };
-}
-
-async function workClick(player, kind) {
-    if (!['work', 'gw', 'mine'].includes(kind)) return { error: 'Action inconnue.' };
-    const id = player.id;
-    const m = await boost.mult();
-    if (kind === 'work') {
-        const p = await db.getProfile(id);
-        const pot = wages.workAmount(p.slavecount, { foreman: p.foreman, mult: m });
-        return paySlice(player, 'work', pot, false);
-    }
-    if (kind === 'gw') {
-        return paySlice(player, 'gw', randInt(25, 100) * m, true);
-    }
-    // une pioche par minute, la meme que =mine (les clics ne s'ajoutent pas a la commande)
-    const left = await cd.take(id, 'mine', MINE_CD);
-    if (left) return { error: 'Ta pioche refroidit…', next: Date.now() + left, ...(await workState(id)) };
-    const r = Math.random() * 1000;
-    let gain;
-    let what;
-    if (r < 1) { gain = 1000; what = 'roknit'; }
-    else if (r < 11) { gain = 100; what = 'diamant'; }
-    else if (r < 61) { gain = randInt(10, 25); what = 'or'; }
-    else { gain = randInt(1, 5); what = 'pierre'; }
-    gain = Math.round(gain * m);
-    const chest = Math.random() < 1 / 40;
-    if (chest) await inv.add(id, 'coffre');
-    const pay = gain ? await eco.addRb(id, gain) : { net: 0, cut: 0 };
-    if (gain) await eco.bump(id, { minecount: gain });
-    progress.track(
-        { user: { id, username: player.name }, channel: null, displayName: player.name },
-        { mine: 1 },
-        { roknit: what === 'roknit' },
-    ).catch(() => {});
-    return { ok: true, kind, gain: pay.net, cut: pay.cut, what, chest, balance: await eco.balance(id), ...(await workState(id)) };
-}
 
 // ===========================================================================
 // CARTE : un petit quartier, 20 maisons, pas une par membre
@@ -181,7 +70,7 @@ async function mapData(userInfo) {
             rb: Number(r.rb), caves: Number(r.cavecount), slaves: Number(r.slavecount), street: streetOf(plot),
         });
     }
-    return { w: 1000, h: 700, streets: STREETS, plots: PLOTS.length, houses };
+    return { w: 1000, h: 700, streets: STREETS, plots: PLOTS.length, plotsXY: PLOTS.map((p, i) => ({ ...p, i })), houses };
 }
 
 // ===========================================================================
@@ -228,4 +117,4 @@ async function profileImageUrl(userId) {
     return p.img || config.content.defaultProfileImage || null;
 }
 
-module.exports = { workState, workClick, assignHouse, initMap, mapData, profileData, profileImageUrl, STREETS, PLOTS, fmt };
+module.exports = { assignHouse, initMap, mapData, profileData, profileImageUrl, STREETS, PLOTS, fmt };

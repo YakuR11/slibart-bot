@@ -11,7 +11,6 @@ import { BlackjackView } from './views/blackjack.js';
 import { MinesView } from './views/mines.js';
 import { LotoView } from './views/loto.js';
 import { DuelView } from './views/duel.js';
-import { WorkView } from './views/work.js';
 import { ParisView } from './views/paris.js';
 import { MapView } from './views/map.js';
 import { ShopView } from './views/shop.js';
@@ -712,9 +711,6 @@ async function boot() {
         if (state.cfg.dev) window.plinkoDebug = { state, recs, board, celebrate, bigWin, friendBigWin, friends, crash, views, app, feedView };
         renderMe(state.skins);
         api('api/shop').then(({ ok, data }) => ok && renderMe(data.equipped));
-        // le "!" du Work se met a jour meme si on n'est pas sur la page
-        workView.refresh();
-        setInterval(() => workView.renderCounts(), 5000);
     } catch (e) {
         gate(e.message || 'Connexion impossible.');
     }
@@ -775,7 +771,7 @@ const setMuteIcon = (m) => {
 $('mute').addEventListener('click', () => setMuteIcon(sound.toggle()));
 setMuteIcon(sound.muted);
 // icones SVG dans la navigation (pas d'emojis en guise d'icones)
-const NAV_ICONS = { casino: 'casino', work: 'pickaxe', map: 'map', shop: 'bag', plinko: 'target', crash: 'rocket', roulette: 'roulette', slots: 'slots', blackjack: 'cards', mines: 'bomb', loto: 'ticket', duel: 'swords' };
+const NAV_ICONS = { casino: 'casino', paris: 'trophy', map: 'map', shop: 'bag', plinko: 'target', crash: 'rocket', roulette: 'roulette', slots: 'slots', blackjack: 'cards', mines: 'bomb', loto: 'ticket', duel: 'swords' };
 for (const b of document.querySelectorAll('[data-page], #games [data-game]')) {
     const k = b.dataset.page || b.dataset.game;
     if (NAV_ICONS[k] && b.tagName === 'BUTTON') b.insertAdjacentHTML('afterbegin', icon(NAV_ICONS[k], 16));
@@ -900,7 +896,6 @@ const app = {
         renderSession();
         for (const n of r.notices || []) toast(n);
     },
-    setWorkBang: (on) => { $('work-bang').hidden = !on; },
     goGame: (g) => { setPage('casino'); setGame(g); },
     duelInvite,
 };
@@ -931,7 +926,6 @@ const views = {
     loto: new LotoView($('v-loto'), app),
     duel: new DuelView($('v-duel'), app),
 };
-const workView = new WorkView($('p-work'), app);
 const parisView = new ParisView($('p-paris'), app);
 const mapView = new MapView($('p-map'), app);
 const shopView = new ShopView($('p-shop'), app);
@@ -985,7 +979,6 @@ function setPage(page) {
     for (const el of document.querySelectorAll('.page')) el.hidden = el.dataset.page !== page;
     const casino = page === 'casino';
     crash.show(casino && state.view === 'crash');
-    workView.show(page === 'work');
     parisView.show(page === 'paris');
     mapView.show(page === 'map');
     shopView.show(page === 'shop');
@@ -1021,7 +1014,7 @@ try {
     const g = localStorage.getItem('casino-view');
     if (g && g !== 'plinko' && document.querySelector(`[data-game="${g}"]`)) setGame(g);
     const p = localStorage.getItem('casino-page');
-    if (p && p !== 'casino') setPage(p);
+    if (p && p !== 'casino' && document.querySelector(`#tabs [data-page="${p}"]`)) setPage(p);
 } catch { /* rien */ }
 
 boot();

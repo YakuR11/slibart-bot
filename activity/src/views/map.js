@@ -9,11 +9,15 @@ const ROOFS = ['#b5523b', '#3e6ea8', '#4c8a5e', '#8758b3', '#c0832b', '#b23d6f',
 const hash = (s) => [...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
 const html = (s) => { const t = document.createElement('template'); t.innerHTML = s.trim(); return t.content.firstChild; };
 const ROAD = 34; // largeur des rues (monde)
+/** 0 cabane, 1 maison, 2 villa (10 000+), 3 manoir (50 000+) */
+const BLURB = 'Cabane sous 1 000 RB, maison, villa avec piscine dès 10 000, manoir dès 50 000. Les 3 plus riches ont leur médaille.';
+const tierOf = (rb) => (rb >= 50000 ? 3 : rb >= 10000 ? 2 : rb >= 1000 ? 1 : 0);
 
 export class MapView {
     constructor(page, app) {
         this.app = app;
         this.page = page;
+        this.still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false;
         page.classList.add('mp');
         this.canvas = el('canvas');
         this.tip = el('div.mp-tip', { hidden: true, role: 'status' });
@@ -32,7 +36,7 @@ export class MapView {
             this.list);
 
         page.append(
-            el('header.wk-head', {}, el('div', {}, el('h2', { text: 'Le quartier' }), this.blurb = el('p', { text: '20 maisons, pas une par membre. Plus on a de RB, plus elle brille.' }))),
+            el('header.pg-head', {}, el('div', {}, el('h2', { text: 'Le quartier' }), this.blurb = el('p', { text: BLURB }))),
             el('div.mp-body', {}, this.wrap, side),
         );
 
@@ -59,7 +63,7 @@ export class MapView {
         if (this.blurb) {
             this.blurb.textContent = r.full && r.you == null
                 ? 'Les 20 maisons sont prises. Plus de RB fait briller une maison, ça n\'en crée pas une 21e.'
-                : '20 maisons, pas une par membre. Plus on a de RB, plus elle brille.';
+                : BLURB;
         }
         this.decor(r);
         for (const h of r.houses) {
@@ -134,8 +138,9 @@ export class MapView {
     clampCam() {
         const halfW = this.W / 2 / this.cam.z;
         const halfH = this.H / 2 / this.cam.z;
-        this.cam.x = halfW * 2 >= 1000 ? 500 : Math.max(halfW, Math.min(1000 - halfW, this.cam.x));
-        this.cam.y = halfH * 2 >= 700 ? 350 : Math.max(halfH, Math.min(700 - halfH, this.cam.y));
+        // marge en haut : les pp et pseudos de la premiere rangee depassent du monde
+        this.cam.x = halfW * 2 >= 1040 ? 500 : Math.max(halfW - 20, Math.min(1020 - halfW, this.cam.x));
+        this.cam.y = halfH * 2 >= 770 ? 350 : Math.max(halfH - 70, Math.min(700 - halfH, this.cam.y));
     }
 
     bindPointer() {
@@ -206,7 +211,7 @@ export class MapView {
 
     select(h, openProfile = false) {
         this.focus = h.id;
-        this.flyTo(h.x, h.y - 20, Math.max(1.6, this.minZ * 1.8));
+        this.flyTo(h.x, h.y - 40, Math.max(1.5, this.minZ * 1.7));
         this.renderList();
         if (openProfile) this.app.openProfile(h.id);
     }
@@ -278,21 +283,20 @@ export class MapView {
         const { ctx } = this;
         if (!ctx || !this.data) return;
         const z = this.cam.z;
+        const t = this.still ? 0 : now;
         ctx.clearRect(0, 0, this.W, this.H);
-        // fond : herbe sombre sur tout le cadre
-        ctx.fillStyle = '#1d3a2c';
+        ctx.fillStyle = '#0f1d18';
         ctx.fillRect(0, 0, this.W, this.H);
         ctx.save();
         ctx.translate(this.W / 2, this.H / 2);
         ctx.scale(z, z);
         ctx.translate(-this.cam.x, -this.cam.y);
 
+        const { xs, ys } = this.grid();
         // terrain
-        ctx.fillStyle = '#2b5440';
+        ctx.fillStyle = '#16291f';
         ctx.fillRect(-200, -200, 1400, 1100);
-        // ilots : trottoir + pelouse
-        const xs = [...new Set(this.data.streets.filter((s) => s.a[0] === s.b[0]).map((s) => s.a[0]))].sort((a, b) => a - b);
-        const ys = [...new Set(this.data.streets.filter((s) => s.a[1] === s.b[1]).map((s) => s.a[1]))].sort((a, b) => a - b);
+        // ilots : bordure, trottoir, pelouse rayee
         const cols = [-120, ...xs, 1120];
         const rows = [-120, ...ys, 820];
         for (let i = 0; i < cols.length - 1; i++) {
@@ -302,32 +306,33 @@ export class MapView {
                 const y0 = rows[j] + ROAD / 2;
                 const y1 = rows[j + 1] - ROAD / 2;
                 if (x1 <= x0 || y1 <= y0) continue;
-                ctx.fillStyle = '#b9ac93'; // trottoir
-                roundRect(ctx, x0, y0, x1 - x0, y1 - y0, 10);
+                ctx.fillStyle = '#6f675c';
+                roundRect(ctx, x0, y0, x1 - x0, y1 - y0, 12);
                 ctx.fill();
-                ctx.fillStyle = '#356b4f'; // pelouse
-                roundRect(ctx, x0 + 7, y0 + 7, x1 - x0 - 14, y1 - y0 - 14, 7);
+                ctx.fillStyle = '#857b6c';
+                roundRect(ctx, x0 + 1.5, y0 + 1.5, x1 - x0 - 3, y1 - y0 - 3, 11);
                 ctx.fill();
-                ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-                ctx.lineWidth = 1;
-                for (let k = x0 + 16; k < x1 - 8; k += 14) {
-                    ctx.beginPath();
-                    ctx.moveTo(k, y0 + 8);
-                    ctx.lineTo(k, y1 - 8);
-                    ctx.stroke();
-                }
+                ctx.fillStyle = '#21402f';
+                roundRect(ctx, x0 + 8, y0 + 8, x1 - x0 - 16, y1 - y0 - 16, 8);
+                ctx.fill();
+                ctx.save();
+                roundRect(ctx, x0 + 8, y0 + 8, x1 - x0 - 16, y1 - y0 - 16, 8);
+                ctx.clip();
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
+                for (let k = x0 + 8; k < x1; k += 24) ctx.fillRect(k, y0, 12, y1 - y0);
+                ctx.restore();
             }
         }
-        // rues
+        // rues : asphalte, bordures, ligne centrale
         for (const st of this.data.streets) {
             const horiz = st.a[1] === st.b[1];
-            ctx.fillStyle = '#2c2c34';
+            ctx.fillStyle = '#1a1b22';
             if (horiz) ctx.fillRect(-200, st.a[1] - ROAD / 2, 1400, ROAD);
             else ctx.fillRect(st.a[0] - ROAD / 2, -200, ROAD, 1100);
         }
-        ctx.strokeStyle = 'rgba(243, 207, 122, 0.55)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([10, 12]);
+        ctx.strokeStyle = 'rgba(232, 198, 106, 0.5)';
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([9, 11]);
         for (const st of this.data.streets) {
             const horiz = st.a[1] === st.b[1];
             ctx.beginPath();
@@ -335,147 +340,267 @@ export class MapView {
             ctx.stroke();
         }
         ctx.setLineDash([]);
-        // passages pietons aux carrefours
-        ctx.fillStyle = 'rgba(247, 235, 215, 0.55)';
+        // carrefours : on efface la ligne, passages pietons
         for (const x of xs) {
             for (const y of ys) {
+                ctx.fillStyle = '#1a1b22';
+                ctx.fillRect(x - ROAD / 2, y - ROAD / 2, ROAD, ROAD);
+                ctx.fillStyle = 'rgba(240, 232, 214, 0.5)';
                 for (let k = -12; k <= 12; k += 6) {
-                    ctx.fillRect(x + k - 1.5, y - ROAD / 2 - 9, 3, 8);
-                    ctx.fillRect(x - ROAD / 2 - 9, y + k - 1.5, 8, 3);
+                    ctx.fillRect(x + k - 1.5, y - ROAD / 2 - 8, 3, 7);
+                    ctx.fillRect(x + k - 1.5, y + ROAD / 2 + 1, 3, 7);
+                    ctx.fillRect(x - ROAD / 2 - 8, y + k - 1.5, 7, 3);
+                    ctx.fillRect(x + ROAD / 2 + 1, y + k - 1.5, 7, 3);
                 }
             }
         }
 
-        // arbres
-        for (const t of this.trees || []) {
-            ctx.fillStyle = 'rgba(0,0,0,0.22)';
+        // terrains libres : a vendre
+        const taken = new Set(this.data.houses.map((h) => h.plot));
+        for (const p of this.data.plotsXY || []) if (!taken.has(p.i)) this.lot(p);
+
+        // arbres (ombre, deux tons, reflet)
+        for (const tr of this.trees || []) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
             ctx.beginPath();
-            ctx.ellipse(t.x + 4, t.y + 5, t.r, t.r * 0.8, 0, 0, Math.PI * 2);
+            ctx.ellipse(tr.x + 3, tr.y + 5, tr.r, tr.r * 0.75, 0, 0, Math.PI * 2);
             ctx.fill();
-            ctx.fillStyle = t.shade > 0.5 ? '#2f7a4c' : '#27693f';
+            ctx.fillStyle = tr.shade > 0.5 ? '#245c3c' : '#1f5034';
             ctx.beginPath();
-            ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
+            ctx.arc(tr.x, tr.y, tr.r, 0, Math.PI * 2);
             ctx.fill();
-            ctx.fillStyle = 'rgba(160, 230, 160, 0.18)';
+            ctx.fillStyle = tr.shade > 0.5 ? '#2f7449' : '#296640';
             ctx.beginPath();
-            ctx.arc(t.x - t.r * 0.3, t.y - t.r * 0.3, t.r * 0.55, 0, Math.PI * 2);
+            ctx.arc(tr.x - tr.r * 0.2, tr.y - tr.r * 0.25, tr.r * 0.7, 0, Math.PI * 2);
             ctx.fill();
         }
 
-        // plaques de rue (taille ecran) sous les maisons : elles ne masquent plus pp et noms
+        // voitures (sous les lampadaires, au-dessus de la route)
+        this.cars(t);
+        // lampadaires : flaques de lumiere chaude
+        this.lamps(t);
+
+        // plaques de rue (taille ecran) sous les maisons
         ctx.restore();
         this.signs();
         ctx.save();
         ctx.translate(this.W / 2, this.H / 2);
         ctx.scale(z, z);
         ctx.translate(-this.cam.x, -this.cam.y);
-        // maisons (de haut en bas)
+        // maisons (de haut en bas), avec leur rang
+        const byRb = [...this.data.houses].sort((a, b) => b.rb - a.rb);
         const houses = [...this.data.houses].sort((a, b) => a.y - b.y);
-        for (const h of houses) this.house(h, now);
+        for (const h of houses) this.house(h, t, byRb.indexOf(h) + 1);
         ctx.restore();
+
+        // vignette : la nuit tombe sur les bords
+        const v = ctx.createRadialGradient(this.W / 2, this.H / 2, Math.min(this.W, this.H) * 0.35, this.W / 2, this.H / 2, Math.max(this.W, this.H) * 0.75);
+        v.addColorStop(0, 'rgba(5, 10, 20, 0)');
+        v.addColorStop(1, 'rgba(5, 10, 20, 0.45)');
+        ctx.fillStyle = v;
+        ctx.fillRect(0, 0, this.W, this.H);
     }
 
-    house(h, now) {
+    grid() {
+        if (!this._grid) {
+            const xs = [...new Set(this.data.streets.filter((s) => s.a[0] === s.b[0]).map((s) => s.a[0]))].sort((a, b) => a - b);
+            const ys = [...new Set(this.data.streets.filter((s) => s.a[1] === s.b[1]).map((s) => s.a[1]))].sort((a, b) => a - b);
+            this._grid = { xs, ys };
+        }
+        return this._grid;
+    }
+
+    lamps(t) {
+        const { ctx } = this;
+        const { xs, ys } = this.grid();
+        if (!this._lamps) {
+            this._lamps = [];
+            for (const x of xs) for (const y of ys) this._lamps.push({ x: x + ROAD / 2 + 5, y: y - ROAD / 2 - 5 });
+            // un lampadaire au milieu de chaque troncon
+            for (let i = 0; i < xs.length - 1; i++) for (const y of ys) this._lamps.push({ x: (xs[i] + xs[i + 1]) / 2, y: y + ROAD / 2 + 5 });
+            for (const x of xs) for (let j = 0; j < ys.length - 1; j++) this._lamps.push({ x: x - ROAD / 2 - 5, y: (ys[j] + ys[j + 1]) / 2 });
+        }
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        for (const l of this._lamps) {
+            const f = 0.92 + 0.08 * Math.sin(t / 900 + l.x * 0.7 + l.y);
+            const g = ctx.createRadialGradient(l.x, l.y, 2, l.x, l.y, 44);
+            g.addColorStop(0, `rgba(255, 196, 110, ${0.3 * f})`);
+            g.addColorStop(1, 'rgba(255, 196, 110, 0)');
+            ctx.fillStyle = g;
+            ctx.fillRect(l.x - 44, l.y - 44, 88, 88);
+        }
+        ctx.restore();
+        for (const l of this._lamps) {
+            ctx.fillStyle = '#2b2a2f';
+            ctx.beginPath();
+            ctx.arc(l.x, l.y, 2.6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffe2a8';
+            ctx.beginPath();
+            ctx.arc(l.x, l.y, 1.4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    cars(t) {
+        const { ctx } = this;
+        if (!this._cars) {
+            const COLORS = ['#e2574c', '#f2c14e', '#4c9be2', '#e8e8e8', '#7bd389', '#c77dff'];
+            this._cars = this.data.streets.slice(0, 6).map((st, i) => ({ st, dir: i % 2 ? -1 : 1, speed: 0.035 + (i % 3) * 0.012, off: i * 173, c: COLORS[i % COLORS.length] }));
+        }
+        for (const car of this._cars) {
+            const horiz = car.st.a[1] === car.st.b[1];
+            const len = 1400;
+            const d = ((car.off + t * car.speed) % len + len) % len;
+            const pos = car.dir > 0 ? d - 200 : 1200 - d;
+            const lane = car.dir > 0 ? 7 : -7;
+            const x = horiz ? pos : car.st.a[0] - lane;
+            const y = horiz ? car.st.a[1] + lane : (car.dir > 0 ? d - 200 : 900 - d);
+            const ang = horiz ? (car.dir > 0 ? 0 : Math.PI) : (car.dir > 0 ? Math.PI / 2 : -Math.PI / 2);
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(ang);
+            // phares
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            const g = ctx.createLinearGradient(8, 0, 40, 0);
+            g.addColorStop(0, 'rgba(255, 240, 200, 0.35)');
+            g.addColorStop(1, 'rgba(255, 240, 200, 0)');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.moveTo(8, -3);
+            ctx.lineTo(40, -11);
+            ctx.lineTo(40, 11);
+            ctx.lineTo(8, 3);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+            roundRect(ctx, -8, -4, 18, 10, 3);
+            ctx.fill();
+            ctx.fillStyle = car.c;
+            roundRect(ctx, -9, -5, 18, 10, 3);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(20, 30, 45, 0.85)';
+            ctx.fillRect(-3, -4, 6, 8);
+            ctx.fillStyle = '#ff5a4f';
+            ctx.fillRect(-9, -4, 1.5, 2);
+            ctx.fillRect(-9, 2, 1.5, 2);
+            ctx.restore();
+        }
+    }
+
+    /** terrain libre : pelouse en pointilles + panneau a vendre */
+    lot(p) {
+        const { ctx } = this;
+        ctx.strokeStyle = 'rgba(240, 232, 214, 0.35)';
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([4, 4]);
+        roundRect(ctx, p.x - 30, p.y - 34, 60, 40, 4);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#5b4632';
+        ctx.fillRect(p.x - 1, p.y - 22, 2, 16);
+        ctx.fillStyle = '#f0e8d6';
+        roundRect(ctx, p.x - 21, p.y - 32, 42, 13, 2);
+        ctx.fill();
+        ctx.fillStyle = '#b5523b';
+        ctx.font = '600 6.5px Bricolage, system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('À VENDRE', p.x, p.y - 25.5);
+    }
+
+    house(h, t, rank) {
         const { ctx } = this;
         const s = this.scaleOf(h);
         const x = h.x;
         const y = h.y;
+        const tier = tierOf(h.rb);
         const shine = Math.min(1, Math.max(0, h.rb) / 10000);
         const hot = this.hover?.id === h.id || this.focus === h.id;
         const me = h.id === this.app.me()?.id;
+        const roof = ROOFS[hash(h.id) % ROOFS.length];
+        const w = [40, 52, 64, 74][tier] * s;
+        const hh = [24, 30, 36, 40][tier] * s;
 
-        // lueur (plus de RB = plus de lumiere), opacite seulement
+        // halo (plus de RB = plus de lumiere ; or pour les manoirs)
         if (shine > 0.02 || hot) {
-            const pulse = 0.9 + 0.1 * Math.sin(now / 600 + x);
-            const r = (56 + 34 * shine) * s;
-            const g = ctx.createRadialGradient(x, y - 14 * s, 6, x, y - 14 * s, r);
-            g.addColorStop(0, `rgba(255, 215, 106, ${Math.min(0.75, (0.12 + 0.5 * shine) * pulse + (hot ? 0.18 : 0))})`);
-            g.addColorStop(1, 'rgba(255, 215, 106, 0)');
+            const pulse = 0.9 + 0.1 * Math.sin(t / 600 + x);
+            const r = (50 + 40 * shine + (tier === 3 ? 20 : 0)) * s;
+            const col = tier === 3 ? '255, 200, 70' : '255, 215, 140';
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            const g = ctx.createRadialGradient(x, y - hh / 2, 6, x, y - hh / 2, r);
+            g.addColorStop(0, `rgba(${col}, ${Math.min(0.6, (0.08 + 0.35 * shine) * pulse + (hot ? 0.15 : 0))})`);
+            g.addColorStop(1, `rgba(${col}, 0)`);
             ctx.fillStyle = g;
-            ctx.beginPath();
-            ctx.arc(x, y - 14 * s, r, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.fillRect(x - r, y - hh / 2 - r, r * 2, r * 2);
+            ctx.restore();
         }
         // allee
-        ctx.fillStyle = '#c9bca2';
-        ctx.fillRect(x - 4, y, 8, 22);
+        ctx.fillStyle = tier >= 2 ? '#cfc3a8' : '#a99c84';
+        ctx.fillRect(x - 4, y, 8, 18);
 
-        const w = 52 * s;
-        const hh = 30 * s;
-        const roofH = 24 * s;
         // ombre portee
-        ctx.fillStyle = 'rgba(0,0,0,0.28)';
-        ctx.fillRect(x - w / 2 + 6, y - hh + 6, w, hh);
-        // facade
-        ctx.fillStyle = '#efe3cb';
-        ctx.fillRect(x - w / 2, y - hh, w, hh);
-        ctx.fillStyle = 'rgba(0,0,0,0.08)';
-        ctx.fillRect(x, y - hh, w / 2, hh);
-        // toit a deux pans
-        const roof = ROOFS[hash(h.id) % ROOFS.length];
-        ctx.fillStyle = roof;
-        ctx.beginPath();
-        ctx.moveTo(x - w / 2 - 6 * s, y - hh);
-        ctx.lineTo(x, y - hh - roofH);
-        ctx.lineTo(x, y - hh);
-        ctx.closePath();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+        roundRect(ctx, x - w / 2 + 5, y - hh + 5, w, hh, 2);
         ctx.fill();
-        ctx.fillStyle = shadeHex(roof, -0.22);
-        ctx.beginPath();
-        ctx.moveTo(x + w / 2 + 6 * s, y - hh);
-        ctx.lineTo(x, y - hh - roofH);
-        ctx.lineTo(x, y - hh);
-        ctx.closePath();
-        ctx.fill();
-        // cheminee
-        ctx.fillStyle = '#6b5446';
-        ctx.fillRect(x + w * 0.2, y - hh - roofH * 0.85, 7 * s, 12 * s);
-        // porte + fenetres (allumees si riche)
-        ctx.fillStyle = '#6b4a2e';
-        roundRect(ctx, x - 5 * s, y - 16 * s, 10 * s, 16 * s, 2 * s);
-        ctx.fill();
-        const lit = shine > 0.25;
-        ctx.fillStyle = lit ? '#ffd88a' : '#8fb5c9';
-        ctx.fillRect(x - 19 * s, y - 24 * s, 9 * s, 8 * s);
-        ctx.fillRect(x + 10 * s, y - 24 * s, 9 * s, 8 * s);
-        // contour si survol / selection
+
+        if (tier === 0) this.shack(x, y, w, hh, s, t);
+        else if (tier === 1) this.home(x, y, w, hh, s, t, roof, shine);
+        else if (tier === 2) this.villa(x, y, w, hh, s, t, roof);
+        else this.manor(x, y, w, hh, s, t);
+
         if (hot) {
             ctx.strokeStyle = '#ffd76a';
             ctx.lineWidth = 2;
-            ctx.strokeRect(x - w / 2 - 3, y - hh - 3, w + 6, hh + 6);
+            roundRect(ctx, x - w / 2 - 4, y - hh - 4, w + 8, hh + 8, 4);
+            ctx.stroke();
         }
 
-        // caves : une arche de pierre par cave, sous la maison (8 dessinees max)
-        const caves = Math.min(8, h.caves);
+        // caves : soupiraux eclaires sous la maison
+        const caves = Math.min(6, h.caves);
         if (caves) {
-            const cw = 9;
+            const cw = 8;
             const gap = 3;
             const total = caves * cw + (caves - 1) * gap;
-            const y0 = y + 8;
-            ctx.fillStyle = '#4a4038';
-            roundRect(ctx, x - total / 2 - 4, y0 - 2, total + 8, 14, 4);
+            const y0 = y + 7;
+            ctx.fillStyle = '#4b433b';
+            roundRect(ctx, x - total / 2 - 4, y0, total + 8, 13, 3);
             ctx.fill();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.fillRect(x - total / 2 - 4, y0 + 10, total + 8, 3);
             for (let i = 0; i < caves; i++) {
                 const cx = x - total / 2 + i * (cw + gap) + cw / 2;
-                ctx.fillStyle = '#0f0a08';
+                const flick = 0.75 + 0.25 * Math.sin(t / 250 + i * 2 + x);
+                ctx.fillStyle = `rgba(255, 150, 60, ${flick})`;
                 ctx.beginPath();
-                ctx.arc(cx, y0 + 10, cw / 2, Math.PI, 0);
+                ctx.moveTo(cx - cw / 2, y0 + 11);
+                ctx.lineTo(cx - cw / 2, y0 + 6);
+                ctx.arc(cx, y0 + 6, cw / 2, Math.PI, 0);
+                ctx.lineTo(cx + cw / 2, y0 + 11);
+                ctx.closePath();
                 ctx.fill();
             }
-            if (h.caves > 8) {
-                ctx.font = '600 12px Bricolage, system-ui, sans-serif';
+            if (h.caves > 6) {
+                ctx.font = '600 10px Bricolage, system-ui, sans-serif';
                 ctx.fillStyle = '#f7ebd7';
                 ctx.textAlign = 'left';
-                ctx.fillText(`+${h.caves - 8}`, x + total / 2 + 8, y0 + 9);
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`+${h.caves - 6}`, x + total / 2 + 7, y0 + 7);
             }
         }
 
-        // pp + nom au-dessus du toit
+        // pp + nom au-dessus du toit ; podium : or, argent, bronze
+        const roofTop = y - hh - [14, 24, 8, 22][tier] * s;
         const r = 15 * s;
-        const ay = y - hh - roofH - r - 6;
-        ctx.fillStyle = me ? '#ffd76a' : '#f7ebd7';
+        const ay = roofTop - r - 6;
+        const RING = { 1: '#ffd24a', 2: '#d9dee6', 3: '#d08a4f' };
+        ctx.fillStyle = RING[rank] || (me ? '#ffd76a' : '#f7ebd7');
         ctx.beginPath();
-        ctx.arc(x, ay, r + 2.5, 0, Math.PI * 2);
+        ctx.arc(x, ay, r + (RING[rank] ? 3.5 : 2.5), 0, Math.PI * 2);
         ctx.fill();
         const img = this.imgs.get(h.avatar);
         ctx.save();
@@ -488,18 +613,248 @@ export class MapView {
         ctx.restore();
         const deco = decoImage(h.skins);
         if (deco?.complete) ctx.drawImage(deco, x - r / 0.36, ay - r / 0.36, (r / 0.36) * 2, (r / 0.36) * 2);
-        // nom : texte avec contour (lisible sur l'herbe, sans etiquette decorative)
-        const fs = Math.max(13, Math.min(16, 13 * this.cam.z * 0.9)) / this.cam.z; // 13 a 16 px a l'ecran
+        if (rank === 1) this.crown(x + r * 0.7, ay - r * 0.85, s);
+        else if (RING[rank]) {
+            // pastille de rang
+            ctx.fillStyle = RING[rank];
+            ctx.beginPath();
+            ctx.arc(x + r * 0.78, ay + r * 0.72, 6.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#2a1408';
+            ctx.font = '600 9px Bricolage, system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(String(rank), x + r * 0.78, ay + r * 0.72 + 0.5);
+        }
+        // nom : texte avec contour, 13 a 16 px a l'ecran
+        const fs = Math.max(13, Math.min(16, 13 * this.cam.z * 0.9)) / this.cam.z;
         ctx.font = `600 ${fs}px Bricolage, system-ui, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         ctx.lineJoin = 'round';
         ctx.lineWidth = 4 / this.cam.z;
-        ctx.strokeStyle = 'rgba(15, 4, 8, 0.85)';
+        ctx.strokeStyle = 'rgba(10, 4, 8, 0.9)';
         const name = h.name.length > 16 ? `${h.name.slice(0, 15)}…` : h.name;
         ctx.strokeText(name, x, ay - r - 5);
-        ctx.fillStyle = me ? '#ffd76a' : '#f7ebd7';
+        ctx.fillStyle = RING[rank] && rank === 1 ? '#ffd24a' : me ? '#ffd76a' : '#f7ebd7';
         ctx.fillText(name, x, ay - r - 5);
+    }
+
+    crown(x, y, s) {
+        const { ctx } = this;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(0.35);
+        ctx.scale(s, s);
+        ctx.fillStyle = '#ffd24a';
+        ctx.strokeStyle = '#7a4a08';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-8, 4);
+        ctx.lineTo(-9, -5);
+        ctx.lineTo(-4, -1);
+        ctx.lineTo(0, -8);
+        ctx.lineTo(4, -1);
+        ctx.lineTo(9, -5);
+        ctx.lineTo(8, 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#e2574c';
+        ctx.beginPath();
+        ctx.arc(0, 1, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    smoke(x, y, s, t) {
+        if (this.still) return;
+        const { ctx } = this;
+        for (let k = 0; k < 3; k++) {
+            const p = ((t / 2400 + k / 3) % 1);
+            ctx.fillStyle = `rgba(200, 200, 210, ${0.28 * (1 - p)})`;
+            ctx.beginPath();
+            ctx.arc(x + Math.sin(p * 4 + k) * 3 * s, y - p * 22 * s, (2.5 + p * 4) * s, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    /** < 1 000 RB : cabane en planches, toit de tole, fenetre condamnee */
+    shack(x, y, w, hh, s) {
+        const { ctx } = this;
+        ctx.fillStyle = '#7a5434';
+        ctx.fillRect(x - w / 2, y - hh, w, hh);
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.lineWidth = 1;
+        for (let k = x - w / 2 + 5; k < x + w / 2; k += 5) {
+            ctx.beginPath();
+            ctx.moveTo(k, y - hh);
+            ctx.lineTo(k, y);
+            ctx.stroke();
+        }
+        // tole de travers
+        ctx.fillStyle = '#8f969c';
+        ctx.beginPath();
+        ctx.moveTo(x - w / 2 - 5 * s, y - hh + 2 * s);
+        ctx.lineTo(x + w / 2 + 4 * s, y - hh - 10 * s);
+        ctx.lineTo(x + w / 2 + 6 * s, y - hh - 4 * s);
+        ctx.lineTo(x - w / 2 - 3 * s, y - hh + 6 * s);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#a0623a';
+        ctx.fillRect(x + w * 0.1, y - hh - 6 * s, 6 * s, 3 * s);
+        // porte + fenetre en croix
+        ctx.fillStyle = '#3e2a1a';
+        ctx.fillRect(x - 4 * s, y - 13 * s, 8 * s, 13 * s);
+        ctx.fillStyle = '#20262c';
+        ctx.fillRect(x - w / 2 + 5 * s, y - hh + 7 * s, 8 * s, 7 * s);
+        ctx.strokeStyle = '#b08850';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(x - w / 2 + 5 * s, y - hh + 7 * s);
+        ctx.lineTo(x - w / 2 + 13 * s, y - hh + 14 * s);
+        ctx.moveTo(x - w / 2 + 13 * s, y - hh + 7 * s);
+        ctx.lineTo(x - w / 2 + 5 * s, y - hh + 14 * s);
+        ctx.stroke();
+    }
+
+    /** 1 000 a 10 000 : maison a deux pans, cheminee qui fume */
+    home(x, y, w, hh, s, t, roof, shine) {
+        const { ctx } = this;
+        const roofH = 24 * s;
+        ctx.fillStyle = '#efe3cb';
+        ctx.fillRect(x - w / 2, y - hh, w, hh);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        ctx.fillRect(x, y - hh, w / 2, hh);
+        ctx.fillStyle = '#6b5446';
+        ctx.fillRect(x + w * 0.2, y - hh - roofH * 0.85, 7 * s, 12 * s);
+        this.smoke(x + w * 0.2 + 3.5 * s, y - hh - roofH * 0.85, s, t);
+        ctx.fillStyle = roof;
+        ctx.beginPath();
+        ctx.moveTo(x - w / 2 - 6 * s, y - hh);
+        ctx.lineTo(x, y - hh - roofH);
+        ctx.lineTo(x, y - hh);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = shadeHex(roof, -0.25);
+        ctx.beginPath();
+        ctx.moveTo(x + w / 2 + 6 * s, y - hh);
+        ctx.lineTo(x, y - hh - roofH);
+        ctx.lineTo(x, y - hh);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#6b4a2e';
+        roundRect(ctx, x - 5 * s, y - 16 * s, 10 * s, 16 * s, 2 * s);
+        ctx.fill();
+        this.windows(x, y, s, [[-19, -24], [10, -24]], shine > 0.25, t);
+    }
+
+    /** 10 000 a 50 000 : villa a toit plat, piscine qui scintille */
+    villa(x, y, w, hh, s, t, roof) {
+        const { ctx } = this;
+        // piscine a droite
+        const px = x + w / 2 + 4 * s;
+        ctx.fillStyle = '#d9d3c4';
+        roundRect(ctx, px - 2 * s, y - 20 * s, 20 * s, 22 * s, 3 * s);
+        ctx.fill();
+        const wave = 0.5 + 0.5 * Math.sin(t / 500 + x);
+        ctx.fillStyle = `rgb(${50 + wave * 20}, ${170 + wave * 30}, ${220 + wave * 20})`;
+        roundRect(ctx, px, y - 18 * s, 16 * s, 18 * s, 2 * s);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(px + 3 * s, y - (12 - wave * 3) * s);
+        ctx.lineTo(px + 13 * s, y - (10 - wave * 2) * s);
+        ctx.stroke();
+        // deux etages
+        ctx.fillStyle = '#f4efe6';
+        ctx.fillRect(x - w / 2, y - hh, w, hh);
+        ctx.fillStyle = '#e4dccd';
+        ctx.fillRect(x - w / 2 + 6 * s, y - hh - 8 * s, w * 0.6, 8 * s);
+        ctx.fillStyle = roof;
+        ctx.fillRect(x - w / 2 - 3 * s, y - hh - 2 * s, w + 6 * s, 4 * s);
+        ctx.fillRect(x - w / 2 + 4 * s, y - hh - 10 * s, w * 0.6 + 4 * s, 3 * s);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+        ctx.fillRect(x, y - hh, w / 2, hh);
+        // grande baie vitree eclairee
+        ctx.fillStyle = '#ffd88a';
+        ctx.fillRect(x - w / 2 + 6 * s, y - 14 * s, w * 0.45, 10 * s);
+        ctx.strokeStyle = 'rgba(80, 60, 30, 0.5)';
+        ctx.lineWidth = 1;
+        for (let k = 1; k < 4; k++) {
+            const lx = x - w / 2 + 6 * s + (w * 0.45 * k) / 4;
+            ctx.beginPath();
+            ctx.moveTo(lx, y - 14 * s);
+            ctx.lineTo(lx, y - 4 * s);
+            ctx.stroke();
+        }
+        ctx.fillStyle = '#4a3324';
+        ctx.fillRect(x + w * 0.18, y - 15 * s, 9 * s, 15 * s);
+        this.windows(x, y, s, [[-w / 2 / s + 8, -30], [4, -30], [w / 2 / s - 16, -30]], true, t);
+    }
+
+    /** 50 000 et plus : manoir a colonnes, toit dore */
+    manor(x, y, w, hh, s, t) {
+        const { ctx } = this;
+        const roofH = 22 * s;
+        ctx.fillStyle = '#f6efe0';
+        ctx.fillRect(x - w / 2, y - hh, w, hh);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+        ctx.fillRect(x, y - hh, w / 2, hh);
+        // toit noir a liseré or
+        ctx.fillStyle = '#2a2230';
+        ctx.beginPath();
+        ctx.moveTo(x - w / 2 - 6 * s, y - hh);
+        ctx.lineTo(x - w / 4, y - hh - roofH);
+        ctx.lineTo(x + w / 4, y - hh - roofH);
+        ctx.lineTo(x + w / 2 + 6 * s, y - hh);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#ffd24a';
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+        // fronton
+        ctx.fillStyle = '#efe6d2';
+        ctx.beginPath();
+        ctx.moveTo(x - 14 * s, y - hh);
+        ctx.lineTo(x, y - hh - 11 * s);
+        ctx.lineTo(x + 14 * s, y - hh);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#c9a54a';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        // colonnes
+        ctx.fillStyle = '#fffaf0';
+        for (const k of [-12, -5, 5, 12]) ctx.fillRect(x + k * s - 1.5 * s, y - hh + 2 * s, 3 * s, hh - 4 * s);
+        ctx.fillStyle = '#3a2618';
+        roundRect(ctx, x - 3 * s, y - 13 * s, 6 * s, 13 * s, 3 * s);
+        ctx.fill();
+        this.windows(x, y, s, [[-w / 2 / s + 5, -30], [-w / 2 / s + 5, -16], [w / 2 / s - 13, -30], [w / 2 / s - 13, -16]], true, t);
+        // lanternes dorees de part et d'autre de la porte
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        for (const k of [-19, 19]) {
+            const g = ctx.createRadialGradient(x + k * s, y - 6 * s, 0, x + k * s, y - 6 * s, 10 * s);
+            g.addColorStop(0, 'rgba(255, 210, 90, 0.7)');
+            g.addColorStop(1, 'rgba(255, 210, 90, 0)');
+            ctx.fillStyle = g;
+            ctx.fillRect(x + k * s - 10 * s, y - 16 * s, 20 * s, 20 * s);
+        }
+        ctx.restore();
+        this.smoke(x + w / 4 - 4 * s, y - hh - roofH, s, t);
+    }
+
+    windows(x, y, s, list, lit, t) {
+        const { ctx } = this;
+        list.forEach(([dx, dy], i) => {
+            const on = lit && (this.still || Math.sin(t / 3000 + i * 1.7 + x) > -0.85);
+            ctx.fillStyle = on ? '#ffd88a' : '#4c6577';
+            ctx.fillRect(x + dx * s, y + dy * s, 8 * s, 7 * s);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.fillRect(x + dx * s + 3.6 * s, y + dy * s, 0.8 * s, 7 * s);
+        });
     }
 
     /** plaques de rue vertes, a taille fixe a l'ecran, en bord de carte visible */

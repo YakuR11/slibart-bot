@@ -100,7 +100,7 @@ async function serveProfileImage(res, route) {
     return proxyImage(res, src, 6 * 1024 * 1024);
 }
 
-/** GIF perso (Tenor / Giphy uniquement) */
+/** GIF perso (Giphy uniquement) */
 async function serveGif(res, u) {
     const ok = u && skins.normalizeGif(u) === u;
     if (!ok) return send(res, 404, 'introuvable', 'text/plain');
@@ -199,8 +199,6 @@ async function handleReq(ws, room, s, op, a = {}) {
         case 'duel.challenge': return games.duelChallenge(player, { ...a, online });
         case 'duel.answer': return games.duelAnswer(player, a);
         case 'duel.play': return games.duelPlay(player, a);
-        case 'work.state': return life.workState(s.id);
-        case 'work.click': return life.workClick(player, a.kind);
         case 'map': {
             const data = await life.mapData(userInfo);
             const mine = data.houses.find((h) => h.id === s.id);

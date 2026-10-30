@@ -74,7 +74,7 @@ async function shopEmbed(ctx) {
             `Tu as **${p.slavecount}** esclave(s), **${p.cavecount}** cave(s) · **${fmt(p.rb)}** ${RB()}\n\n` +
             `🛠️ **Esclave** · \`${config.prefix}buy slave [nb|max]\`\n` +
             `> Prochain : **${fmt(next)}** ${RB()} · les 5 prochains : ${fmt(next5)}\n` +
-            `> +${WORK_PER_SLAVE} ${RB()} par \`${config.prefix}work\` · les clics de l'app puisent dans le même salaire\n` +
+            `> +${WORK_PER_SLAVE} ${RB()} par \`${config.prefix}work\`\n` +
             `> +15% de prix à chaque esclave\n` +
             `> Place libre : **${Math.max(0, room)}** (${SLAVES_PER_CAVE} par cave)\n\n` +
             `🏠 **Cave** · \`${config.prefix}buy cave\`\n` +
@@ -129,7 +129,7 @@ module.exports = [
             const pot = wages.workAmount(p.slavecount, { foreman: p.foreman, mult: m });
             const got = await wages.claim(ctx.user.id, 'work', pot, pot, { all: true });
             if (got.paid <= 0) {
-                const who = p.foreman ? 'chat, app ou contremaître' : 'chat ou app';
+                const who = p.foreman ? 'ton contremaître est passé' : 'déjà fait';
                 return ctx.reply(`⏳ **${ctx.displayName}**, salaire déjà pris (${who}). Prochain ${ui.ts(got.slotEnd)}.`);
             }
             const pay = await eco.addRb(ctx.user.id, got.paid);
@@ -155,7 +155,7 @@ module.exports = [
             const pay = await eco.addRb(ctx.user.id, got.paid);
             const shown = got.already ? got.paid : base * m;
             const mood = shown >= 90 * m ? '🤑' : shown <= 35 * m ? '😐' : '💸';
-            const partial = got.already ? ` · ${fmt(got.already)} déjà cliqués dans l'app` : '';
+            const partial = got.already ? ` · ${fmt(got.already)} déjà pris` : '';
             await ctx.reply(`${mood} **+${fmt(pay.net)}** ${RB()} pour **${ctx.displayName}** !${happyTag(m)}${credit.note(pay.cut, pay.debt)}\n-# prochain gw ${ui.ts(got.slotEnd)}${partial}`);
             if (got.fresh) await progress.track(ctx, { gw: 1 });
         },
