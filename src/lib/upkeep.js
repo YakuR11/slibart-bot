@@ -6,6 +6,7 @@ const eco = require('./economy');
 const config = require('../config');
 const paris = require('./paris');
 const log = require('./logger');
+const away = require('./away');
 
 const TAX_FLOOR = 20_000;
 const TAX_RATE = 0.01;
@@ -63,6 +64,7 @@ async function charge() {
             return pay;
         });
         if (took > 0) {
+            await away.add(r.id_user, { upkeep: took });
             n++;
             total += took;
         }

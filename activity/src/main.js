@@ -13,6 +13,8 @@ import { LotoView } from './views/loto.js';
 import { DuelView } from './views/duel.js';
 import { ParisView } from './views/paris.js';
 import { MapView } from './views/map.js';
+import { EmpireView } from './views/empire.js';
+import { Goal, flyCoins, watchRank, awayReport, tutorial } from './tycoon-ui.js';
 import { ShopView } from './views/shop.js';
 import { openProfile } from './views/profile.js';
 import { icon } from './icons.js';
@@ -62,8 +64,10 @@ function target() {
 }
 
 const bal = { shown: 0, raf: 0 };
+let onBalancePaint = null; // barre d'objectif de l'en-tete
 function renderBalance(dur = 0, cls = null) {
     const to = target();
+    onBalancePaint?.(to);
     cancelAnimationFrame(bal.raf);
     const el = $('balance');
     if (cls) {
@@ -712,6 +716,16 @@ async function boot() {
         // mode test uniquement : de quoi declencher les effets a la main
         if (state.cfg.dev) window.plinkoDebug = { state, recs, board, celebrate, bigWin, friendBigWin, friends, crash, views, app, feedView };
         renderMe(state.skins);
+        // tycoon : objectif, classement, retour d'absence ou tuto au premier lancement
+        empireView.refresh(12).then(() => {
+            let first = false;
+            try { first = !localStorage.getItem('tuto-v1'); } catch { /* rien */ }
+            if (first) setTimeout(() => tutorial(), 900);
+            else awayReport(app, empireView.st);
+        });
+        pollTop(12);
+        setInterval(() => empireView.refresh(), 30000);
+        setInterval(pollTop, 20000);
         api('api/shop').then(({ ok, data }) => ok && renderMe(data.equipped));
     } catch (e) {
         gate(e.message || 'Connexion impossible.');
@@ -775,7 +789,7 @@ setMuteIcon(sound.muted);
 const music = new Music($('music'), () => sound.muted);
 $('music').innerHTML = icon('music', 18);
 // icones SVG dans la navigation (pas d'emojis en guise d'icones)
-const NAV_ICONS = { casino: 'casino', paris: 'trophy', map: 'map', shop: 'bag', plinko: 'target', crash: 'rocket', roulette: 'roulette', slots: 'slots', blackjack: 'cards', mines: 'bomb', loto: 'ticket', duel: 'swords' };
+const NAV_ICONS = { casino: 'casino', empire: 'crown', paris: 'trophy', map: 'map', shop: 'bag', plinko: 'target', crash: 'rocket', roulette: 'roulette', slots: 'slots', blackjack: 'cards', mines: 'bomb', loto: 'ticket', duel: 'swords' };
 for (const b of document.querySelectorAll('[data-page], #games [data-game]')) {
     const k = b.dataset.page || b.dataset.game;
     if (NAV_ICONS[k] && b.tagName === 'BUTTON') b.insertAdjacentHTML('afterbegin', icon(NAV_ICONS[k], 16));
@@ -802,7 +816,9 @@ document.addEventListener('keydown', (e) => {
 // ---------------------------------------------------------------------------
 function setBalance(bal, celebrateUp = false) {
     if (!Number.isFinite(Number(bal))) return;
-    const up = Number(bal) > target();
+    const gain = Number(bal) - target();
+    const up = gain > 0;
+    if (up && celebrateUp) flyCoins(gain);
     state.server = Number(bal);
     renderBalance(up && celebrateUp ? 700 : up ? 400 : 0, up && celebrateUp ? 'up' : null);
 }
@@ -900,7 +916,11 @@ const app = {
         state.sessionNet += r.net || 0;
         renderSession();
         for (const n of r.notices || []) toast(n);
+        scheduleTycoon();
     },
+    page: () => state.page,
+    onTycoon: (st) => goal?.set(st),
+    markSeen: (st) => goal?.markSeen(st),
     goGame: (g) => { setPage('casino'); setGame(g); },
     duelInvite,
 };
@@ -933,6 +953,21 @@ const views = {
 };
 const parisView = new ParisView($('p-paris'), app);
 const mapView = new MapView($('p-map'), app);
+const empireView = new EmpireView($('p-empire'), app);
+const goal = new Goal(app, (p) => setPage(p));
+onBalancePaint = (v) => goal.paint(v);
+// l'etat du tycoon (prix, objectif) se rafraichit apres les parties, sans spammer le serveur
+let tycoonTimer = 0;
+function scheduleTycoon() {
+    clearTimeout(tycoonTimer);
+    tycoonTimer = setTimeout(() => empireView.refresh(), 2500);
+}
+let lastTop = null;
+async function pollTop(tries = 1) {
+    const t = await empireView.refreshTop(tries);
+    if (t) watchRank(lastTop, t, app);
+    if (t) lastTop = t;
+}
 const shopView = new ShopView($('p-shop'), app);
 
 /** invitation en duel : fenetre par-dessus tout, ou qu'on soit */
@@ -986,6 +1021,7 @@ function setPage(page) {
     crash.show(casino && state.view === 'crash');
     parisView.show(page === 'paris');
     mapView.show(page === 'map');
+    empireView.show(page === 'empire');
     shopView.show(page === 'shop');
     if (casino && state.view === 'plinko') board.resize();
     try { localStorage.setItem('casino-page', page); } catch { /* rien */ }

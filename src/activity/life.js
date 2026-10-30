@@ -57,7 +57,7 @@ async function initMap(userIds) {
 
 async function mapData(userInfo) {
     const rows = await db.q(
-        'SELECT h.plot, h.id_user, p.rb, p.cavecount, p.slavecount FROM map_houses h JOIN profile p ON p.id_user = h.id_user',
+        'SELECT h.plot, h.id_user, p.rb, p.cavecount, p.slavecount, p.prestige FROM map_houses h JOIN profile p ON p.id_user = h.id_user',
     );
     const houses = [];
     for (const r of rows) {
@@ -67,7 +67,7 @@ async function mapData(userInfo) {
         houses.push({
             id: String(r.id_user), plot: Number(r.plot), x: plot.x, y: plot.y,
             name: u.name, avatar: u.avatar, skins: await skins.equipped(r.id_user),
-            rb: Number(r.rb), caves: Number(r.cavecount), slaves: Number(r.slavecount), street: streetOf(plot),
+            rb: Number(r.rb), caves: Number(r.cavecount), slaves: Number(r.slavecount), prestige: Number(r.prestige || 0), street: streetOf(plot),
         });
     }
     return { w: 1000, h: 700, streets: STREETS, plots: PLOTS.length, plotsXY: PLOTS.map((p, i) => ({ ...p, i })), houses };

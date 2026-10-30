@@ -12,10 +12,12 @@
             <h1 class="logo">Slibart</h1>
             <nav class="tabs" role="tablist" aria-label="Pages" id="tabs">
                 <button type="button" role="tab" data-page="casino" aria-selected="true">Casino</button>
+                <button type="button" role="tab" data-page="empire" aria-selected="false">Empire<i class="bang" id="empire-bang" hidden>!</i></button>
                 <button type="button" role="tab" data-page="paris" aria-selected="false">Paris</button>
                 <button type="button" role="tab" data-page="map" aria-selected="false">Carte</button>
                 <button type="button" role="tab" data-page="shop" aria-selected="false">Boutique</button>
             </nav>
+            <button type="button" class="goal" id="goal" hidden aria-label="Prochain objectif"><span class="goal-t" id="goal-t"></span><span class="goal-bar"><i id="goal-fill"></i></span></button>
             <ul class="players" id="players" aria-label="Joueurs dans le vocal"></ul>
             <div class="wallet">
                 <button type="button" class="me-btn" id="me-btn" aria-label="Mon profil" title="Mon profil"></button>
@@ -154,6 +156,9 @@
                     <main class="playfield view" data-view="duel" id="v-duel" hidden></main>
                 </section>
 
+                <!-- ================= EMPIRE ================= -->
+                <section class="page" data-page="empire" id="p-empire" hidden></section>
+
                 <!-- ================= PARIS ================= -->
                 <section class="page" data-page="paris" id="p-paris" hidden></section>
 
@@ -180,6 +185,7 @@
         </div>
         <div class="banners" id="banners" aria-live="polite"></div>
         <div class="modal" id="modal" hidden></div>
+        <div class="tuto" id="tuto" hidden></div>
         <div class="toasts" id="toasts" aria-live="polite"></div>
         <p class="ver" id="ver"></p>
         <div class="gate" id="gate" hidden>
