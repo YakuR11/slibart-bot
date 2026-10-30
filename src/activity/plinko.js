@@ -10,6 +10,7 @@ const progress = require('../lib/progress');
 const announce = require('../lib/announce');
 const { fmt } = require('../lib/utils');
 const log = require('../lib/logger');
+const feed = require('./feed');
 
 // Tables classiques du Plinko : ~99 % reverse aux joueurs, 1 % pour la banque du slip
 const TABLES = {
@@ -111,7 +112,7 @@ async function play(player, { bet, risk, rows }, hooks) {
 
     const net = received - bet;
     later(id, () => stats(id, bet, payout, received));
-    round(player, { bet, net, allin: received >= bal }, hooks);
+    round(player, { bet, net, allin: received >= bal, before: bal - received + bet }, hooks);
     if (net >= BIG_WIN) announceWin(player, net, mult, bet);
 
     return { path, bucket, mult, bet, payout, received, net, cut, balance: bal, notices: [] };
@@ -147,12 +148,14 @@ async function stats(id, bet, payout, received) {
 const ROUND_MS = 5000;
 const rounds = new Map();
 
-function round(player, { bet, net, allin }, hooks) {
+function round(player, { bet, net, allin, before }, hooks) {
     let r = rounds.get(player.id);
     if (!r) {
         r = { player, wager: 0, net: 0, maxBet: 0, allin: false, balls: 0 };
         rounds.set(player.id, r);
         r.timer = setTimeout(() => closeRound(player.id), ROUND_MS);
+        // centre des paris : une rafale = un pari
+        r.feedId = feed.start({ player, game: 'plinko', bet, allin, balBefore: before });
     }
     r.hooks = hooks;
     r.balls++;
@@ -160,12 +163,15 @@ function round(player, { bet, net, allin }, hooks) {
     r.net += net;
     r.maxBet = Math.max(r.maxBet, bet);
     r.allin = r.allin || allin;
+    if (r.balls > 1) feed.grow(r.feedId, { bet: r.wager, allin, balBefore: before });
 }
 
 function closeRound(id) {
     const r = rounds.get(id);
     rounds.delete(id);
     if (!r) return;
+    // le resultat de la rafale, apres l'atterrissage de la derniere bille
+    setTimeout(() => feed.finish(r.feedId, { net: r.net, mult: r.wager ? Math.round(((r.wager + r.net) / r.wager) * 100) / 100 : null, text: `${r.balls} bille${r.balls > 1 ? 's' : ''}` }), 2200);
     later(id, async () => {
         const won = r.net > 0;
         await eco.bump(id, { gamblecount: 1 });

@@ -13,7 +13,6 @@ const COLORS = {
 const BUCKET_STOPS = ['#f7e7a0', '#ffd25a', '#ffb627', '#ff8a3d', '#ff5a4e', '#d92f45'];
 const CONFETTI = ['#ffd76a', '#ff5a4e', '#4fd1ff', '#8cff6b', '#ff6fb5', '#f7ebd7', '#b98bff'];
 
-import { paintBall, paintTrail, ballColor } from './looks.js';
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -531,7 +530,7 @@ export class Board {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const fontSize = this.mini ? Math.min(9, bw * 0.34) : Math.max(9, Math.min(15, bw * (rows === 16 ? 0.3 : 0.32)));
-        ctx.font = `700 ${fontSize}px Bricolage, system-ui, sans-serif`;
+        ctx.font = `600 ${fontSize}px Bricolage, system-ui, sans-serif`;
         const radius = this.mini ? 3 : 7;
         for (let k = 0; k <= rows; k++) {
             const x = this.bucketX(k);
@@ -583,26 +582,9 @@ export class Board {
         const { ctx } = this;
         const r = b.mine ? this.ballR : this.ballR * (b.img ? 1.12 : 0.95);
         const useImg = b.img && b.img.complete && b.img.naturalWidth && !this.mini;
-        if (b.look) {
-            const spawn = this.mini || this.parts.length > 400 ? null : (x, y, o) => this.burst(x, y, o);
-            paintTrail(ctx, b.trail, r, b.look, b.trailLook || { kind: 'same' }, now, spawn);
-            if (b.slow < 1) {
-                ctx.fillStyle = withAlpha('#fff1c4', 0.25 + 0.2 * Math.sin(now / 50));
-                ctx.beginPath();
-                ctx.arc(b.x, b.y, r * 2.2, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            if (!b.pts) {
-                ctx.fillStyle = withAlpha(ballColor(b.look, now), 0.18 + 0.12 * Math.sin(now / 60));
-                ctx.beginPath();
-                ctx.arc(b.x, b.y, r * 1.9, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            if (!useImg) return paintBall(ctx, b.x, b.y, r, b.look, now);
-        }
         // trainee
         const n = b.trail.length;
-        if (!b.look) b.trail.forEach(([tx, ty], i) => {
+        b.trail.forEach(([tx, ty], i) => {
             ctx.fillStyle = withAlpha(b.color, (i / n) * (b.mine ? 0.28 : 0.4));
             ctx.beginPath();
             ctx.arc(tx, ty, r * (0.35 + (i / n) * 0.55), 0, Math.PI * 2);
@@ -652,7 +634,7 @@ export class Board {
 
     drawLabel(b) {
         const { ctx } = this;
-        ctx.font = '700 11px Bricolage, system-ui, sans-serif';
+        ctx.font = '600 12px Bricolage, system-ui, sans-serif';
         const w = ctx.measureText(b.label).width + 10;
         const y = b.y - this.ballR * 1.12 - 13;
         ctx.fillStyle = 'rgba(20, 4, 8, 0.78)';

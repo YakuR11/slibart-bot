@@ -176,6 +176,24 @@ async function migrate() {
         skin VARCHAR(48) NOT NULL,
         PRIMARY KEY (id_user, slot)
     )`);
+    // journal des paris de l'app (recap du jour dans #daily)
+    await exec(`CREATE TABLE IF NOT EXISTS gamble_log (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        id_user VARCHAR(32) NOT NULL,
+        game VARCHAR(16) NOT NULL,
+        bet BIGINT NOT NULL,
+        net BIGINT NOT NULL,
+        allin TINYINT NOT NULL DEFAULT 0,
+        at BIGINT NOT NULL,
+        day CHAR(10) NOT NULL,
+        INDEX (day)
+    )`);
+    // la carte du quartier : une maison fixe par membre
+    await exec(`CREATE TABLE IF NOT EXISTS map_houses (
+        plot INT PRIMARY KEY,
+        id_user VARCHAR(32) NOT NULL UNIQUE,
+        at BIGINT NOT NULL
+    )`);
     await exec(`CREATE TABLE IF NOT EXISTS weekly (
         week CHAR(10) NOT NULL,
         id_user VARCHAR(32) NOT NULL,

@@ -175,3 +175,5 @@ module.exports = [
         },
     },
 ];
+
+module.exports.badgesFor = badgesFor;

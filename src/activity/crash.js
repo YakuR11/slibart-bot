@@ -9,6 +9,7 @@ const progress = require('../lib/progress');
 const announce = require('../lib/announce');
 const log = require('../lib/logger');
 const { fmt } = require('../lib/utils');
+const feed = require('./feed');
 
 const K = 0.09; // meme vitesse que =crash : x2 a ~7,7 s, x5 a ~18 s, x10 a ~26 s
 const BET_MS = 8000; // compte a rebours avant decollage
@@ -120,6 +121,7 @@ async function settle(g, b, payout) {
         const ctx = { user: { id: b.player.id } };
         const { net, bal } = await casino.settle(ctx, b.bet, payout);
         b.reply?.({ type: 'crash:balance', balance: bal });
+        feed.finish(b.feedId, { net, mult: b.cashed || 0, text: b.cashed ? `encaissé ×${b.cashed}` : `💥 ×${g.point}` });
         const notices = (await progress.track(
             { user: { id: b.player.id, username: b.player.name }, channel: null, displayName: b.player.name },
             { play: 1, win: net > 0 ? 1 : 0, wager: b.bet },
@@ -161,9 +163,11 @@ async function bet(room, player, { bet: raw, auto }, reply) {
     }
     slot.pending = false;
     slot.allin = amount >= before;
+    slot.feedId = feed.start({ player, game: 'crash', bet: amount, allin: slot.allin, balBefore: before, text: autoAt ? `auto ×${autoAt}` : null });
     // la manche a pu decoller pendant l'attente : on rembourse
     if (g.phase !== 'betting') {
         g.bets.delete(player.id);
+        feed.cancel(slot.feedId);
         await eco.addRb(player.id, amount, undefined, { raw: true });
         return { error: 'Trop tard, la fusée est partie !' };
     }
@@ -177,6 +181,7 @@ async function cancel(room, playerId) {
     const b = g?.bets.get(playerId);
     if (!b || g.phase !== 'betting' || b.pending) return { error: 'Impossible d\'annuler maintenant.' };
     g.bets.delete(playerId);
+    feed.cancel(b.feedId);
     await eco.addRb(playerId, b.bet, undefined, { raw: true });
     io.broadcast(room, { type: 'crash:cancel', id: playerId });
     return { ok: true, balance: await eco.balance(playerId) };

@@ -56,11 +56,11 @@ function roll(table) {
 
 async function grant(userId, [, type, min, max]) {
     if (type === 'skin') {
-        const id = await skins.fromChest(userId, min, max);
-        if (id) return { text: `${skins.label(id)} — équipe-le dans la **Boutique** de l'Activity 🚀`, big: skins.SKINS[id].rarity === 'legendaire' };
-        // il a deja tout : on compense en Rokbux
-        const pay = await eco.addRb(userId, skins.RARITIES[max].price / 5);
-        return { text: `🎨 Tu as déjà tous ces skins → **+${fmt(pay.net)}** ${RB()}`, big: false };
+        const id = await skins.fromChest(userId);
+        if (id) return { text: `${skins.label(id)} — équipe-le dans la **Boutique** de l'app 🚀`, big: !!skins.SKINS[id].chest };
+        // il a deja tous les cadres : on compense en Rokbux
+        const pay = await eco.addRb(userId, skins.PRICE);
+        return { text: `🖼️ Tu as déjà tous les cadres → **+${fmt(pay.net)}** ${RB()}`, big: false };
     }
     const amount = randInt(min, max);
     if (type === 'rb') {
@@ -92,7 +92,7 @@ module.exports = [
             const items = await inv.list(ctx.user.id);
             const lines = Object.keys(inv.ITEMS).filter((k) => items[k]).map((k) => `${inv.label(k, items[k])}`);
             const mySkins = Object.keys(items).filter(skins.isSkin);
-            if (mySkins.length) lines.push(`🎨 **${mySkins.length}** skin(s) : ${mySkins.map((k) => skins.SKINS[k.slice(5)]?.name).filter(Boolean).join(', ')}\n-# Équipe-les dans la Boutique de l'Activity (\`/plinko\`)`);
+            if (mySkins.length) lines.push(`🖼️ **${mySkins.length}** cadre(s) : ${mySkins.map((k) => skins.SKINS[k.slice(5)]?.name).filter(Boolean).join(', ')}\n-# Équipe-les dans la Boutique de l'app (\`/plinko\`)`);
             const crates = ORDER.reduce((a, k) => a + (items[k] || 0), 0);
             const embed = new EmbedBuilder()
                 .setColor(ui.COLORS.quest)

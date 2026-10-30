@@ -3,150 +3,172 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Casino du slip</title>
+    <title>Slibart Casino</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="cabinet" id="app">
         <header class="marquee">
-            <h1 class="logo">Casino</h1>
-            <nav class="tabs" role="tablist" aria-label="Jeux" id="tabs">
-                <button type="button" role="tab" data-view="plinko" aria-selected="true"><span aria-hidden="true">🎯</span> Plinko</button>
-                <button type="button" role="tab" data-view="crash" aria-selected="false"><span aria-hidden="true">🚀</span> Crash<i class="live" id="crash-live" hidden></i></button>
-                <button type="button" role="tab" data-view="shop" aria-selected="false"><span aria-hidden="true">🛍️</span> Boutique</button>
+            <h1 class="logo">Slibart</h1>
+            <nav class="tabs" role="tablist" aria-label="Pages" id="tabs">
+                <button type="button" role="tab" data-page="casino" aria-selected="true">Casino</button>
+                <button type="button" role="tab" data-page="work" aria-selected="false">Work<i class="bang" id="work-bang" hidden>!</i></button>
+                <button type="button" role="tab" data-page="map" aria-selected="false">Carte</button>
+                <button type="button" role="tab" data-page="shop" aria-selected="false">Boutique</button>
             </nav>
             <ul class="players" id="players" aria-label="Joueurs dans le vocal"></ul>
             <div class="wallet">
+                <button type="button" class="me-btn" id="me-btn" title="Mon profil"></button>
                 <span class="level" id="level" title="Ton niveau">niv. –</span>
                 <span class="session" id="session" title="Gains depuis l'ouverture" hidden></span>
                 <span class="balance" id="balance" aria-live="polite">–</span>
-                <button class="icon-btn" id="mute" type="button" aria-label="Couper le son" title="Son">🔊</button>
+                <button class="icon-btn" id="mute" type="button" aria-label="Couper le son" title="Son"></button>
             </div>
         </header>
 
-        <!-- ================= PLINKO ================= -->
-        <main class="playfield view" data-view="plinko">
-            <div class="stage">
-                <ul class="tribune" id="tribune" aria-label="Tes potes en direct" hidden></ul>
-                <section class="board-wrap" id="board-wrap" aria-label="Plateau">
-                    <canvas id="board"></canvas>
-                    <div class="pops" id="pops" aria-hidden="true"></div>
-                    <div class="streak" id="streak" hidden></div>
-                </section>
-            </div>
-
-            <aside class="console">
-                <div class="field">
-                    <label for="bet">Mise</label>
-                    <div class="bet-row" id="bet-row">
-                        <input id="bet" type="text" inputmode="numeric" autocomplete="off" value="100">
-                        <button type="button" class="chip" data-bet="half">½</button>
-                        <button type="button" class="chip" data-bet="double">×2</button>
-                        <button type="button" class="chip" data-bet="max">Max</button>
-                    </div>
-                </div>
-
-                <div class="field">
-                    <span class="field-label" id="risk-label">Risque</span>
-                    <div class="seg" role="radiogroup" aria-labelledby="risk-label" id="risk">
-                        <button type="button" role="radio" data-v="low">Doux</button>
-                        <button type="button" role="radio" data-v="medium" aria-checked="true">Normal</button>
-                        <button type="button" role="radio" data-v="high">Sale</button>
-                    </div>
-                </div>
-
-                <div class="field">
-                    <span class="field-label" id="rows-label">Rangées de picots</span>
-                    <div class="seg" role="radiogroup" aria-labelledby="rows-label" id="rows">
-                        <button type="button" role="radio" data-v="8">8</button>
-                        <button type="button" role="radio" data-v="12" aria-checked="true">12</button>
-                        <button type="button" role="radio" data-v="16">16</button>
-                    </div>
-                </div>
-
-                <button type="button" class="drop" id="drop">Lâcher la bille</button>
-                <p class="hint">Maintiens le bouton (ou Espace) pour enchaîner.</p>
-
-                <div class="auto">
-                    <span class="field-label">En rafale</span>
-                    <div class="auto-row" id="auto">
-                        <button type="button" class="chip" data-n="10">10</button>
-                        <button type="button" class="chip" data-n="25">25</button>
-                        <button type="button" class="chip" data-n="50">50</button>
-                        <button type="button" class="chip stop" id="stop" hidden>Stop</button>
-                    </div>
-                </div>
-
-                <div class="history" aria-label="Tes derniers résultats" id="history"></div>
-
-                <div class="feed-wrap">
-                    <span class="field-label">Dans le vocal</span>
-                    <ol class="feed" id="feed"></ol>
-                </div>
-
-                <p class="ver" id="ver"></p>
+        <div class="shell">
+            <!-- ===== centre des paris (tous les jeux, tout le monde) ===== -->
+            <aside class="feed-col" id="feed-col" aria-label="Paris en direct">
+                <div class="feed-head"><span class="dot"></span> En direct</div>
+                <ol class="live-feed" id="live-feed"></ol>
             </aside>
-        </main>
 
-        <!-- ================= CRASH ================= -->
-        <main class="playfield view" data-view="crash" hidden>
-            <div class="stage">
-                <section class="board-wrap crash-wrap" id="crash-wrap" aria-label="Crash">
-                    <canvas id="crash-canvas"></canvas>
-                    <div class="crash-hud">
-                        <div class="crash-mult" id="crash-mult">1.00×</div>
-                        <div class="crash-sub" id="crash-sub">Connexion…</div>
-                        <div class="crash-bar" id="crash-bar-wrap"><span id="crash-bar"></span></div>
-                    </div>
-                    <div class="crash-hist" id="crash-hist" aria-label="Derniers crashs"></div>
+            <div class="pages">
+                <!-- ================= CASINO ================= -->
+                <section class="page" data-page="casino">
+                    <nav class="games" id="games" aria-label="Jeux">
+                        <button type="button" data-game="plinko" aria-selected="true">Plinko</button>
+                        <button type="button" data-game="crash">Crash<i class="live" id="crash-live" hidden></i></button>
+                        <button type="button" data-game="roulette">Roulette</button>
+                        <button type="button" data-game="slots">Slots</button>
+                        <button type="button" data-game="blackjack">Blackjack</button>
+                        <button type="button" data-game="mines">Mines</button>
+                        <button type="button" data-game="loto">Loto</button>
+                        <button type="button" data-game="duel">Duel<i class="bang" id="duel-bang" hidden>!</i></button>
+                    </nav>
+
+                    <!-- PLINKO -->
+                    <main class="playfield view" data-view="plinko">
+                        <div class="stage">
+                            <ul class="tribune" id="tribune" aria-label="Tes potes en direct" hidden></ul>
+                            <section class="board-wrap" id="board-wrap" aria-label="Plateau">
+                                <canvas id="board"></canvas>
+                                <div class="pops" id="pops" aria-hidden="true"></div>
+                                <div class="streak" id="streak" hidden></div>
+                            </section>
+                        </div>
+                        <aside class="console">
+                            <div class="field">
+                                <label for="bet">Mise</label>
+                                <div class="bet-row" id="bet-row">
+                                    <input id="bet" type="text" inputmode="numeric" autocomplete="off" value="100">
+                                    <button type="button" class="chip" data-bet="half">½</button>
+                                    <button type="button" class="chip" data-bet="double">×2</button>
+                                    <button type="button" class="chip" data-bet="max">Max</button>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <span class="field-label" id="risk-label">Risque</span>
+                                <div class="seg" role="radiogroup" aria-labelledby="risk-label" id="risk">
+                                    <button type="button" role="radio" data-v="low">Doux</button>
+                                    <button type="button" role="radio" data-v="medium" aria-checked="true">Normal</button>
+                                    <button type="button" role="radio" data-v="high">Sale</button>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <span class="field-label" id="rows-label">Rangées de picots</span>
+                                <div class="seg" role="radiogroup" aria-labelledby="rows-label" id="rows">
+                                    <button type="button" role="radio" data-v="8">8</button>
+                                    <button type="button" role="radio" data-v="12" aria-checked="true">12</button>
+                                    <button type="button" role="radio" data-v="16">16</button>
+                                </div>
+                            </div>
+                            <button type="button" class="drop" id="drop">Lâcher la bille</button>
+                            <p class="hint">Maintiens le bouton (ou Espace) pour enchaîner.</p>
+                            <div class="auto">
+                                <span class="field-label">En rafale</span>
+                                <div class="auto-row" id="auto">
+                                    <button type="button" class="chip" data-n="10">10</button>
+                                    <button type="button" class="chip" data-n="25">25</button>
+                                    <button type="button" class="chip" data-n="50">50</button>
+                                    <button type="button" class="chip stop" id="stop" hidden>Stop</button>
+                                </div>
+                            </div>
+                            <div class="history" aria-label="Tes derniers résultats" id="history"></div>
+                            <div class="feed-wrap">
+                                <span class="field-label">Dans le vocal</span>
+                                <ol class="feed" id="feed"></ol>
+                            </div>
+                        </aside>
+                    </main>
+
+                    <!-- CRASH -->
+                    <main class="playfield view" data-view="crash" hidden>
+                        <div class="stage">
+                            <section class="board-wrap crash-wrap" id="crash-wrap" aria-label="Crash">
+                                <canvas id="crash-canvas"></canvas>
+                                <div class="crash-hud">
+                                    <div class="crash-mult" id="crash-mult">1.00×</div>
+                                    <div class="crash-sub" id="crash-sub">Connexion…</div>
+                                    <div class="crash-bar" id="crash-bar-wrap"><span id="crash-bar"></span></div>
+                                </div>
+                                <div class="crash-hist" id="crash-hist" aria-label="Derniers crashs"></div>
+                            </section>
+                        </div>
+                        <aside class="console">
+                            <div class="field">
+                                <label for="crash-bet">Mise</label>
+                                <div class="bet-row" id="crash-bet-row">
+                                    <input id="crash-bet" type="text" inputmode="numeric" autocomplete="off" value="100">
+                                    <button type="button" class="chip" data-bet="half">½</button>
+                                    <button type="button" class="chip" data-bet="double">×2</button>
+                                    <button type="button" class="chip" data-bet="max">Max</button>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <span class="field-label">Encaisser automatiquement à</span>
+                                <div class="bet-row" id="crash-auto-row">
+                                    <input id="crash-auto" type="text" inputmode="decimal" autocomplete="off" placeholder="désactivé" readonly>
+                                    <button type="button" class="chip" data-auto="1.5">×1.5</button>
+                                    <button type="button" class="chip" data-auto="2">×2</button>
+                                    <button type="button" class="chip" data-auto="5">×5</button>
+                                    <button type="button" class="chip" data-auto="">Off</button>
+                                </div>
+                            </div>
+                            <button type="button" class="drop crash-btn" id="crash-btn" disabled>Miser</button>
+                            <p class="hint" id="crash-hint">Mise pendant le compte à rebours, encaisse avant l'explosion.</p>
+                            <div class="feed-wrap">
+                                <span class="field-label">Cette manche</span>
+                                <ol class="crash-players" id="crash-players"></ol>
+                            </div>
+                        </aside>
+                    </main>
+
+                    <!-- les autres jeux sont construits par leur module -->
+                    <main class="playfield view" data-view="roulette" id="v-roulette" hidden></main>
+                    <main class="playfield view" data-view="slots" id="v-slots" hidden></main>
+                    <main class="playfield view" data-view="blackjack" id="v-blackjack" hidden></main>
+                    <main class="playfield view" data-view="mines" id="v-mines" hidden></main>
+                    <main class="playfield view" data-view="loto" id="v-loto" hidden></main>
+                    <main class="playfield view" data-view="duel" id="v-duel" hidden></main>
                 </section>
+
+                <!-- ================= WORK ================= -->
+                <section class="page" data-page="work" id="p-work" hidden></section>
+
+                <!-- ================= CARTE ================= -->
+                <section class="page" data-page="map" id="p-map" hidden></section>
+
+                <!-- ================= BOUTIQUE ================= -->
+                <section class="page shop" data-page="shop" id="p-shop" hidden></section>
             </div>
+        </div>
 
-            <aside class="console">
-                <div class="field">
-                    <label for="crash-bet">Mise</label>
-                    <div class="bet-row" id="crash-bet-row">
-                        <input id="crash-bet" type="text" inputmode="numeric" autocomplete="off" value="100">
-                        <button type="button" class="chip" data-bet="half">½</button>
-                        <button type="button" class="chip" data-bet="double">×2</button>
-                        <button type="button" class="chip" data-bet="max">Max</button>
-                    </div>
-                </div>
-
-                <div class="field">
-                    <label for="crash-auto">Encaisser automatiquement à</label>
-                    <div class="bet-row" id="crash-auto-row">
-                        <input id="crash-auto" type="text" inputmode="decimal" autocomplete="off" placeholder="désactivé">
-                        <button type="button" class="chip" data-auto="2">×2</button>
-                        <button type="button" class="chip" data-auto="5">×5</button>
-                        <button type="button" class="chip" data-auto="">Off</button>
-                    </div>
-                </div>
-
-                <button type="button" class="drop crash-btn" id="crash-btn" disabled>Miser</button>
-                <p class="hint" id="crash-hint">Mise pendant le compte à rebours, encaisse avant l'explosion.</p>
-
-                <div class="feed-wrap">
-                    <span class="field-label">Cette manche</span>
-                    <ol class="crash-players" id="crash-players"></ol>
-                </div>
-            </aside>
-        </main>
-
-        <!-- ================= BOUTIQUE ================= -->
-        <main class="shop view" data-view="shop" hidden>
-            <div class="shop-head">
-                <div>
-                    <h2>Boutique</h2>
-                    <p id="shop-sub">Des skins pour frimer devant le vocal. Purement cosmétique.</p>
-                </div>
-                <div class="seg shop-slots" role="tablist" id="shop-slots"></div>
-            </div>
-            <div class="shop-grid" id="shop-grid"></div>
-            <p class="shop-note">🎁 Certains skins ne s'achètent pas : ils tombent des coffres du bot (<code>=ouvrir</code>).</p>
-        </main>
-
-        <div class="banners" id="banners" aria-live="polite"></div>
+        <!-- couches d'effets -->
+        <canvas class="fx-canvas" id="fx-canvas" aria-hidden="true"></canvas>
+        <div class="screen-glow" id="screen-glow" aria-hidden="true"></div>
+        <div class="dim" id="dim" aria-hidden="true"></div>
+        <div class="hype" id="hype" hidden></div>
         <div class="bigwin" id="bigwin" hidden>
             <div class="rays" aria-hidden="true"></div>
             <div class="bw-box">
@@ -155,7 +177,10 @@
                 <div class="bw-mult" id="bw-mult">×10</div>
             </div>
         </div>
+        <div class="banners" id="banners" aria-live="polite"></div>
+        <div class="modal" id="modal" hidden></div>
         <div class="toasts" id="toasts" aria-live="polite"></div>
+        <p class="ver" id="ver"></p>
         <div class="gate" id="gate" hidden>
             <p id="gate-msg">Connexion à Discord…</p>
         </div>

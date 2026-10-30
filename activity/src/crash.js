@@ -1,7 +1,11 @@
 // Vue Crash : une fusee partagee par tout le vocal.
 // Le serveur envoie les phases (mises -> vol -> crash) ; l'affichage calcule le multiplicateur
 // en direct avec la meme formule, recale sur l'horloge du serveur.
-import { lookOf, paintBall, withAlpha } from './looks.js';
+const withAlpha = (c, a) => {
+    if (c.startsWith('hsl(')) return c.replace('hsl(', 'hsla(').replace(')', `, ${a})`);
+    const n = parseInt(c.slice(1), 16);
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+};
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Math.trunc(Number(n) || 0).toLocaleString('fr-FR').replace(/ | /g, ' ');
@@ -448,7 +452,7 @@ export class CrashView {
         ctx.strokeStyle = 'rgba(247, 235, 215, 0.12)';
         ctx.fillStyle = 'rgba(247, 235, 215, 0.45)';
         ctx.lineWidth = 1;
-        ctx.font = '600 11px Bricolage, system-ui, sans-serif';
+        ctx.font = '600 12px Bricolage, system-ui, sans-serif';
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
         for (const m of niceSteps(sc.mMax)) {
@@ -469,7 +473,6 @@ export class CrashView {
 
         // courbe
         const me = this.myBet();
-        const look = lookOf(this.o.mySkins(), 'ball');
         const crashed = this.phase === 'crashed';
         if (this.phase !== 'betting') {
             const pts = [];
@@ -520,7 +523,7 @@ export class CrashView {
                     ctx.restore();
                 }
                 ctx.fillStyle = c;
-                ctx.font = '800 11px Bricolage, system-ui, sans-serif';
+                ctx.font = '600 12px Bricolage, system-ui, sans-serif';
                 ctx.textBaseline = 'bottom';
                 ctx.fillText(`${b.cashed.toFixed(2)}×`, p.x, p.y - 32);
                 ctx.fillStyle = withAlpha(c, 0.9);
@@ -552,8 +555,6 @@ export class CrashView {
                 ctx.textBaseline = 'middle';
                 ctx.fillText('🚀', 0, 0);
                 ctx.restore();
-                // ma bille en hublot si j'ai mise (on voit son skin)
-                if (me && !me.cashed) paintBall(ctx, tip.x + 18, tip.y + 16, 6, look, now);
             } else {
                 ctx.font = '34px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
                 ctx.textAlign = 'center';
