@@ -88,27 +88,19 @@ async function settleLater(player, opts, delayMs) {
 }
 
 // ---------------------------------------------------------------------------
-// SLOTS : 3 rouleaux, paire = moitie, triple = x5 a x2000, jackpot progressif sur 777
+// SLOTS : grille 6 x 5, gains en paquets, cascades, bombes, tours gratuits (moteur : slotmath.js)
+// Un appel = 1 a 100 tours d'un coup (ou 1 a 10 bonus achetes). Tout est tire et paye ici,
+// le client rejoue l'animation. Un seul pari dans le centre des paris pour toute la rafale.
 // ---------------------------------------------------------------------------
-const REELS = [
-    { s: '🍒', w: 35, x3: 5 },
-    { s: '🍋', w: 30, x3: 8 },
-    { s: '🍇', w: 20, x3: 15 },
-    { s: '🔔', w: 10, x3: 50 },
-    { s: '💎', w: 4, x3: 250 },
-    { s: '7️⃣', w: 1, x3: 2000 },
-];
-const REEL_TOTAL = REELS.reduce((a, r) => a + r.w, 0);
-const PAIR_PAYOUT = 0.5;
+const slotmath = require('./slotmath');
+
+const SPINS_MAX = 100;
+const BUYS_MAX = 10;
+const BUY_PRICE = 100; // x la mise : le bonus vaut ~x95 en moyenne
 const JACKPOT_BASE = 5000;
-const JACKPOT_CUT = 0.03;
+const JACKPOT_CUT = 0.015;
 const JACKPOT_MIN_BET = 100;
 
-function spinReel() {
-    let n = rnd() * REEL_TOTAL;
-    for (const r of REELS) if ((n -= r.w) < 0) return r;
-    return REELS[0];
-}
 async function jackpotAdd(n) {
     await db.exec(
         `INSERT INTO settings (k, v) VALUES ('jackpot', ?) ON DUPLICATE KEY UPDATE v = CAST(v AS SIGNED) + ?`,
@@ -125,30 +117,65 @@ async function jackpotClaim() {
     });
 }
 
-async function slots(player, { bet }) {
-    const s = await stake(player, bet);
-    if (s.error) return s;
-    const feedId = feed.start({ player, game: 'slots', bet: s.bet, allin: s.allin, balBefore: s.before });
-    const res = [spinReel(), spinReel(), spinReel()];
-    const [a, b, c] = res;
-    await jackpotAdd(Math.max(1, Math.floor(s.bet * JACKPOT_CUT)));
+async function slots(player, { bet: rawBet, n: rawN = 1, buy = false }) {
+    const bet = Math.floor(Number(rawBet));
+    if (!Number.isFinite(bet) || bet < MIN_BET) return { error: `Mise minimum : ${MIN_BET}.` };
+    if (bet > MAX_BET) return { error: `Mise maximum : ${fmt(MAX_BET)}.` };
+    const unit = bet * (buy ? BUY_PRICE : 1);
+    const cap = buy ? BUYS_MAX : SPINS_MAX;
+    let n = Math.max(1, Math.min(cap, Math.floor(Number(rawN)) || 1));
+    // pas assez pour toute la rafale : on lance ce qu'on peut payer
+    const before = await eco.balance(player.id);
+    n = Math.min(n, Math.floor(before / unit));
+    if (n < 1) return { error: `Solde insuffisant (${fmt(before)}) : il faut ${fmt(unit)} RB${buy ? ' pour le bonus' : ''}.` };
+    const cost = unit * n;
+    if (!(await eco.takeRb(player.id, cost))) return { error: `Solde insuffisant (${fmt(before)}).` };
+    const allin = cost >= before;
+    const feedId = feed.start({ player, game: 'slots', bet: cost, allin, balBefore: before, text: buy ? `achète ${n} bonus` : n > 1 ? `${n} tours` : null });
+
+    const spins = [];
     let payout = 0;
-    let kind = 'none';
+    let best = 0;
+    let wins = 0;
     let pot = 0;
-    const isJackpot = a.s === '7️⃣' && b.s === '7️⃣' && c.s === '7️⃣';
-    if (a.s === b.s && b.s === c.s) {
-        payout = s.bet * a.x3;
-        if (isJackpot && s.bet >= JACKPOT_MIN_BET) pot = await jackpotClaim();
-        payout += pot;
-        kind = isJackpot ? 'jackpot' : 'triple';
-    } else if (a.s === b.s || b.s === c.s || a.s === c.s) {
-        payout = Math.floor(s.bet * PAIR_PAYOUT);
-        kind = 'pair';
+    for (let i = 0; i < n; i++) {
+        const r = slotmath.play({ buy: !!buy });
+        let pay = Math.floor(bet * r.total);
+        // jackpot progressif : 6 slips ou plus en jeu normal, mise 100+
+        let jp = 0;
+        if (!buy && r.spin.scatters >= 6 && bet >= JACKPOT_MIN_BET && !pot) {
+            jp = await jackpotClaim();
+            pot = jp;
+            pay += jp;
+        }
+        payout += pay;
+        if (pay > 0) wins++;
+        best = Math.max(best, r.total);
+        spins.push({ ...r, pay, jp });
     }
-    const mult = Math.round((payout / s.bet) * 100) / 100;
-    const text = kind === 'jackpot' ? '777 JACKPOT' : kind === 'triple' ? `triple ${a.s}` : kind === 'pair' ? 'paire' : res.map((r) => r.s).join('');
-    const out = await settleLater(player, { game: 'slots', bet: s.bet, payout, allin: s.allin, feedId, mult, text, meta: { jackpot: isJackpot } }, 2600);
-    return { reels: res.map((r) => r.s), kind, payout, mult, pot, jackpot: await jackpot(), ...out };
+    await jackpotAdd(Math.max(1, Math.floor(cost * JACKPOT_CUT)));
+
+    const { net, bal, cut } = await casino.settle({ user: { id: player.id } }, cost, payout);
+    const mult = Math.round((payout / cost) * 100) / 100;
+    const text = `${buy ? `${n} bonus` : `${n} tour${n > 1 ? 's' : ''}`} · meilleur ×${Math.round(best * 10) / 10}${pot ? ' · JACKPOT' : ''}`;
+    // le resultat sort dans le centre des paris a peu pres quand l'animation finit
+    const anim = Math.min(20000, 1800 + spins.length * (n > 1 ? 650 : 1400) + spins.filter((s) => s.fs).length * 6000);
+    setTimeout(() => feed.finish(feedId, { net, mult, text }), anim);
+    let notices = [];
+    try {
+        notices = (await progress.track(
+            { user: { id: player.id, username: player.name }, channel: null, displayName: player.name },
+            { play: n, win: wins, wager: cost },
+            { bet: cost, net, allin, jackpot: !!pot },
+        )) || [];
+    } catch (e) {
+        log.warn('[slots] progression', e.message);
+    }
+    if (net >= 3000) {
+        announce.send({ content: `🚨 **${player.name}** vient de gagner **${fmt(net)}** ${config.rbEmoji} aux **Slots** (${text}) dans l'app !` }).catch(() => {});
+    }
+    // solde relu apres la progression : les quetes et niveaux payes pendant la rafale sont dedans
+    return { bet, n, buy: !!buy, cost, spins, payout, mult, best, pot, net, balance: Math.max(bal, await eco.balance(player.id)), cut, notices: notices.map(clean), jackpot: await jackpot() };
 }
 
 // ---------------------------------------------------------------------------
