@@ -152,7 +152,7 @@ Ajouter une commande = ajouter un objet dans un fichier de `src/commands/`, elle
 
 ## ⚔️ Plusieurs serveurs : la guerre de clans
 
-Le bot peut être invité sur plusieurs serveurs. **Un serveur = un clan.** Le compte en banque d'un joueur est le même partout ; il appartient au premier serveur où il utilise le bot (ou ouvre l'app), et peut changer avec `=clan rejoindre` une fois par semaine.
+Le bot peut être invité sur plusieurs serveurs. **Un serveur = un clan.** Le compte en banque d'un joueur est le même partout ; il appartient au premier serveur où il utilise le bot (ou ouvre l'app), et peut changer avec `=clan rejoindre` : libre la première fois, puis une fois par semaine (`=resetcd @membre clan` remet le délai à zéro).
 
 - `=clan` : classement de la semaine, par serveur, au **gain net du casino** de ses membres (la même base que `=semaine`). Le dimanche à 21h, s'il y a au moins deux serveurs qui ont joué, chaque membre du serveur gagnant qui a joué reçoit 1 000 RB + un coffre rare.
 - `=setsalon` se fait **sur chaque serveur** : gros gains, événements, pluies, loterie et fin de saison sont annoncés dans tous. Un gros gain sur un serveur s'affiche donc chez les autres.

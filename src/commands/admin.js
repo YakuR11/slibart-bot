@@ -53,10 +53,12 @@ module.exports = [
         usage: '<@user> [nom]',
         options: [
             { name: 'membre', type: 'user', required: true, description: 'Cible' },
-            { name: 'nom', type: 'string', description: 'work, gw, mine, rc, link, cave, gamble, slots (tous si vide)' },
+            { name: 'nom', type: 'string', description: 'work, gw, mine, rc, link, cave, gamble, slots, daily, clan (tous si vide)' },
         ],
         async run(ctx, { membre, nom }) {
             await cd.clear(membre.id, nom || null);
+            // le delai de 7 jours entre deux changements de clan
+            if (!nom || nom === 'clan') await db.exec('UPDATE profile SET clan_at = 0 WHERE id_user = ?', [membre.id]);
             if (!nom || nom === 'daily') {
                 // on recule le dernier daily de 20h : reprenable tout de suite sans casser le streak
                 await db.exec('UPDATE profile SET daily_last = ? WHERE id_user = ? AND daily_last > 0', [Date.now() - 20 * 3600 * 1000 - 1000, membre.id]);
