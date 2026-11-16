@@ -56,6 +56,8 @@ async function happyTick() {
     if (now >= start && now < end && (await db.getSetting('happy_announced')) !== p.day) {
         await db.setSetting('happy_announced', p.day);
         boost.reset();
+        // un evenement plus gros tourne deja : pas d'annonce "x2" qui embrouille
+        if ((await boost.event())?.mult >= 2) return;
         await announce.send({
             content: '@here',
             allowedMentions: { parse: ['everyone'] },
@@ -70,12 +72,61 @@ async function happyTick() {
     }
 }
 
+// evenement (=event) : rappel 2h avant la fin, puis annonce de fin
+async function eventTick() {
+    const end = Number(await db.getSetting('event_end', '0'));
+    const mult = Number(await db.getSetting('event_mult', '1'));
+    if (!end || mult < 2) return;
+    const name = (await db.getSetting('event_name', '')) || 'Retour du slip';
+    const now = Date.now();
+    const key = String(end);
+    const long = end - Number(await db.getSetting('event_start', '0')) >= 6 * 3600 * 1000;
+    if (long && now < end && end - now <= 2 * 3600 * 1000 && (await db.getSetting('event_lastcall')) !== key) {
+        await db.setSetting('event_lastcall', key);
+        await announce.send({
+            content: '@here',
+            allowedMentions: { parse: ['everyone'] },
+            embeds: [new EmbedBuilder()
+                .setColor('#ff6b00')
+                .setTitle(`⏰ ${name.toUpperCase()} : DERNIÈRE LIGNE DROITE`)
+                .setDescription(`Les gains **x${mult}** s'arrêtent <t:${Math.floor(end / 1000)}:R>. \`${config.prefix}cd\` pour tout ramasser avant la fin.`)],
+        });
+    }
+    if (now >= end && (await db.getSetting('event_ended')) !== key) {
+        await db.setSetting('event_ended', key);
+        boost.reset();
+        await announce.send({
+            embeds: [new EmbedBuilder()
+                .setColor('#2ee62b')
+                .setTitle(`🩲 ${name} : c'est fini`)
+                .setDescription(`Les gains repassent à la normale. Le slip, lui, pue toujours. \`${config.prefix}top capital\` pour voir qui en a le plus profité.`)],
+        });
+    }
+}
+
+// guerre de clans : le serveur qui a le plus gros gain net de la semaine gagne (il en faut au moins deux)
+async function clanWar(week) {
+    const clans = require('./clans');
+    const inv = require('./inventory');
+    const { fmt } = require('./utils');
+    const res = await clans.payWar(week);
+    if (!res) return;
+    const lines = res.table.map((c, i) => `${['🥇', '🥈', '🥉'][i] || `${i + 1}.`} **${c.name}** — ${c.net >= 0 ? '+' : '-'}${fmt(Math.abs(c.net))} ${config.rbEmoji} · ${c.players} joueur${c.players > 1 ? 's' : ''}`);
+    await announce.send({
+        embeds: [new EmbedBuilder()
+            .setColor('#f1c40f')
+            .setTitle(`⚔️ GUERRE DE CLANS : ${res.winner.name.toUpperCase()} GAGNE`)
+            .setDescription(`${lines.join('\n')}\n\nLes **${res.paid}** membres de **${res.winner.name}** qui ont joué cette semaine reçoivent **${fmt(clans.WAR_RB)}** ${config.rbEmoji} + ${inv.label(clans.WAR_CRATE)}.\nNouvelle guerre lancée. \`${config.prefix}clan\``)],
+    });
+}
+
 async function weeklyTick(client) {
     const p = paris.now();
     if (p.dow !== 0 || p.h < 21) return;
     const week = paris.weekKey();
     if ((await db.getSetting('weekly_paid')) === week) return;
     await db.setSetting('weekly_paid', week);
+    await clanWar(week);
     const res = await payWeekly(client, announce);
     if (res) log.info(`[saison] ${week} payee a ${res.length} joueur(s)`);
 }
@@ -122,6 +173,8 @@ function start(client) {
     setInterval(safe('rappels', () => reminderTick(client)), 60_000).unref();
     setInterval(safe('loto', () => lotteryTick(client)), 30_000).unref();
     setInterval(safe('happy', () => happyTick()), 30_000).unref();
+    setInterval(safe('event', () => eventTick()), 30_000).unref();
+    setInterval(safe('pluie', () => require('./rain').tick()), 30_000).unref();
     setInterval(safe('saison', () => weeklyTick(client)), 60_000).unref();
     setInterval(safe('sport', () => sports.tick(client)), 60_000).unref();
     setInterval(safe('recap', () => recapTick(client)), 60_000).unref();

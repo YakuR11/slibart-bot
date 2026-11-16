@@ -12,12 +12,17 @@ const progress = require('../lib/progress');
 const RB = () => config.rbEmoji;
 
 // ---------------------------------------------------------------------------
-// Roulette (=gamble)
+// Roulette europeenne (=roulette) : memes paris et memes gains que dans l'app
 // ---------------------------------------------------------------------------
-const COLORS = { r: 'red', red: 'red', rouge: 'red', b: 'black', black: 'black', noir: 'black', n: 'black', g: 'green', green: 'green', vert: 'green', v: 'green' };
-const COLOR_EMOJI = { red: '🔴', black: '⚫', green: '🟢' };
-const GREEN_CHANCE = 1 / 15;
-const GREEN_PAYOUT = 14;
+const rl = require('../lib/roulette-math');
+const DOT = { red: '🔴', black: '⚫', green: '🟢' };
+const pocket = (n) => `${DOT[rl.color(n)]}${n}`;
+/** morceau de roue centre sur n : 🔴27 ⚫13 ▸ 🔴36 ◂ ⚫11 🔴30 */
+function wheelAround(n) {
+    const i = rl.WHEEL.indexOf(n);
+    const at = (k) => pocket(rl.WHEEL[(i + k + 37) % 37]);
+    return `${at(-2)} ${at(-1)} ▸ **${at(0)}** ◂ ${at(1)} ${at(2)}`;
+}
 
 // ---------------------------------------------------------------------------
 // Machine a sous (=slots) — esperance ~0.90, le casino gagne a la longue
@@ -98,57 +103,69 @@ async function playRound(ctx, channel, p1, p2, amount, round) {
     return { c1: choices[p1.id], c2: choices[p2.id] };
 }
 
-const STRIP = ['🔴', '⚫', '🔴', '⚫', '🟢', '⚫', '🔴', '⚫', '🔴', '⚫', '🔴', '⚫', '🔴', '⚫', '🔴'];
-/** bande de roulette centree sur une case de la couleur voulue : ⚫🔴⚫ ▸🔴◂ ⚫🔴⚫ */
-const stripAround = (emoji) => {
-    const spots = STRIP.map((e, i) => (e === emoji ? i : -1)).filter((i) => i >= 0);
-    const i = pick(spots);
-    const at = (k) => STRIP[(i + k + STRIP.length) % STRIP.length];
-    return `${at(-3)}${at(-2)}${at(-1)} ▸${at(0)}◂ ${at(1)}${at(2)}${at(3)}`;
-};
-
 module.exports = [
     {
-        name: 'gamble',
-        aliases: ['g', 'roulette'],
+        name: 'roulette',
+        aliases: ['gamble', 'g', 'rl'],
         category: 'jeux',
-        description: 'Roulette : rouge/noir x2, vert x14',
-        usage: '<red|black|green> <montant|all|half>',
-        example: 'gamble r 500',
+        description: 'Roulette (0-36) : couleurs, pair/impair, numeros, chevaux, douzaines... plusieurs paris a la fois',
+        usage: '<mise par pari> <pari> [pari...]',
+        example: 'roulette 100 rouge 17 17-18 d2',
         options: [
-            {
-                name: 'couleur', type: 'string', required: true, description: 'Couleur',
-                choices: [{ name: '🔴 rouge (x2)', value: 'red' }, { name: '⚫ noir (x2)', value: 'black' }, { name: '🟢 vert (x14, 1/15)', value: 'green' }],
-            },
-            { name: 'montant', type: 'string', required: true, description: 'Nombre, all, half, 1k...' },
+            { name: 'montant', type: 'string', required: true, description: 'Mise sur CHAQUE pari : nombre, all, half, 1k...' },
+            { name: 'paris', type: 'text', required: true, description: 'rouge noir pair impair 1-18 19-36 d1-d3 c1-c3, un numero (17), un cheval (17-18), un carre (8-9-11-12)' },
         ],
-        async run(ctx, { couleur, montant }) {
-            const color = COLORS[couleur.toLowerCase()];
-            if (!color) return ctx.fail('Couleur : `red`/`r`, `black`/`b` ou `green`/`g`.');
-            const placed = await casino.placeBet(ctx, montant, 'gamble', 1_000);
+        async run(ctx, { montant, paris }) {
+            let amount = String(montant);
+            let words = String(paris).split(/[\s,]+/).filter(Boolean);
+            // ancien ordre (=g r 500) : le pari d'abord, la mise ensuite
+            if (rl.parseBet(amount) && !/^(\d|all|half|tout|max|moiti)/i.test(amount) && words.length === 1) [amount, words] = [words[0], [amount]];
+            const ids = [];
+            for (const w of words) {
+                const id = rl.parseBet(w);
+                if (!id) {
+                    return ctx.fail(
+                        `Pari inconnu : \`${w}\`.\n` +
+                        `**x2** \`rouge\` \`noir\` \`pair\` \`impair\` \`1-18\` \`19-36\` · **x3** \`d1\` \`d2\` \`d3\` (douzaines) \`c1\` \`c2\` \`c3\` (colonnes)\n` +
+                        `**x36** un numéro \`17\` · **x18** un cheval \`17-18\` · **x12** une transversale \`16-17-18\` · **x9** un carré \`8-9-11-12\` · **x6** un sixain \`13-18\`\n` +
+                        `Ex : \`${config.prefix}roulette 100 rouge 17 d2\` (100 sur chacun).`,
+                    );
+                }
+                if (!ids.includes(id)) ids.push(id);
+            }
+            if (ids.length > 12) return ctx.fail('12 paris maximum par tour dans le chat (dans l\'app tu poses autant de jetons que tu veux).');
+
+            // la mise est PAR pari : on debite le total d'un coup
+            const bal = await eco.balance(ctx.user.id);
+            const each = /^(all|tout|max)$/i.test(amount) ? Math.floor(bal / ids.length) : /^(half|moiti)/i.test(amount) ? Math.floor(bal / 2 / ids.length) : eco.parseAmount(amount, bal);
+            if (!each) return ctx.fail(bal ? 'Mise invalide (nombre, `all`, `half`, `1k`...).' : `Tu n'as plus un ${RB()}... \`${config.prefix}rsa\`, \`${config.prefix}work\` ou \`${config.prefix}daily\` !`);
+            const placed = await casino.placeBet(ctx, String(each * ids.length), 'gamble', 1_000);
             if (!placed) return;
             const { bet, allin } = placed;
+            const bets = ids.map((id) => ({ id, amount: each }));
 
-            const outcome = color === 'green'
-                ? (Math.random() < GREEN_CHANCE ? 'green' : pick(['red', 'black']))
-                : (Math.random() < 0.5 ? 'red' : 'black');
-            const won = outcome === color;
-            const payout = won ? bet * (color === 'green' ? GREEN_PAYOUT : 2) : 0;
-            const { net, bal, cut, debt } = await casino.settle(ctx, bet, payout);
+            const n = rl.spin(Math.random);
+            const { payout, wins } = rl.settle(bets, n);
+            const { net, bal: after, cut, debt } = await casino.settle(ctx, bet, payout);
 
-            const spin = ui.gameEmbed(ctx, `Roulette · ${fmt(bet)} sur ${COLOR_EMOJI[color]}`)
-                .setDescription(`## ${stripAround(pick(STRIP))}\n🎡 La bille tourne...`);
-            const msg = await ctx.reply({ embeds: [spin] });
-            await sleep(1100);
+            const label = (id) => { const d = rl.BETS.get(id); return d.kind === 'simple' || d.kind === 'colonne' ? d.label : `${d.kind} ${d.label}`; };
+            const title = ids.length === 1 ? `Roulette · ${fmt(bet)} sur ${label(ids[0])}` : `Roulette · ${ids.length} paris de ${fmt(each)} · ${fmt(bet)} au total`;
+            const tease = rl.WHEEL[Math.floor(Math.random() * 37)];
+            const msg = await ctx.reply({ embeds: [ui.gameEmbed(ctx, title).setDescription(`## ${wheelAround(tease)}\n🎡 La bille tourne...`)] });
+            await sleep(1200);
             const st = ui.resultStyle(net, bet);
-            const final = ui.gameEmbed(ctx, `Roulette · ${fmt(bet)} sur ${COLOR_EMOJI[color]}`, st.color)
+            const won = new Map(wins.map((w) => [w.id, w.pay]));
+            const lines = ids.map((id) => (won.has(id) ? `✅ ${label(id)} → **+${fmt(won.get(id) - each)}**` : `❌ ${label(id)}`));
+            const final = ui.gameEmbed(ctx, title, st.color)
                 .setDescription(
-                    `## ${stripAround(COLOR_EMOJI[outcome])}\n` +
-                    `${st.tag} — c'est tombé sur ${COLOR_EMOJI[outcome]} **${outcome}**\n${ui.signed(net)}${cut ? `\n🏦 La banque prend **${fmt(cut)}** · dette **${fmt(debt)}**` : ''}`,
+                    `## ${wheelAround(n)}\n` +
+                    `${st.tag} — la bille s'arrête sur ${pocket(n)}\n` +
+                    `${ids.length > 1 ? `${lines.join('\n')}\n` : ''}${ui.signed(net)}${cut ? `\n🏦 La banque prend **${fmt(cut)}** · dette **${fmt(debt)}**` : ''}`,
                 )
-                .setFooter({ text: `Solde : ${fmt(bal)}` });
+                .setFooter({ text: `Solde : ${fmt(after)}` });
             await casino.editReply(ctx, msg, { embeds: [final], components: [casino.replayRow(bet)] }).catch(() => {});
-            casino.listenReplay(ctx, msg, bet, (m) => ({ couleur: color, montant: m }));
+            // Rejouer garde les memes paris ; le montant du bouton est le total, on le redivise
+            casino.listenReplay(ctx, msg, bet, (m) => ({ montant: m === 'all' ? 'all' : String(Math.max(1, Math.floor(Number(m) / ids.length))), paris: words.join(' ') }));
             await casino.after(ctx, { bet, net, allin, game: 'roulette' });
         },
     },

@@ -10,6 +10,7 @@ const { fmt } = require('./utils');
 const GAMES = {
     plinko: '🎯 Plinko', crash: '🚀 Crash', roulette: '🎡 Roulette', slots: '🎰 Slots',
     blackjack: '🃏 Blackjack', mines: '💣 Mines', loto: '🎟️ Loto', duel: '⚔️ Duel',
+    dice: '🎲 Dice', limbo: '🚀 Limbo', keno: '🔢 Keno', tower: '🗼 Tour du Slip', hilo: '🃏 HiLo',
 };
 
 async function build(client, day = paris.now().day) {

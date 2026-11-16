@@ -1,7 +1,7 @@
 {
   "_info": "Tout le contenu modifiable du bot est ici. Pas besoin de toucher au code pour changer une image, une playlist ou un trigger. Redemarre le bot apres modif.",
 
-  "statuses": ["je sens mauvais", "=help", "compter vos insultes", "miner du roknit", "le casino du slip"],
+  "statuses": ["je sens mauvais", "=help", "compter vos insultes", "miner du roknit", "le casino du slip", "=dice · =limbo · =plinko", "le slip est de retour"],
 
   "defaultProfileImage": "https://i.pinimg.com/736x/be/d0/ba/bed0ba36ef572fe44e749ba3a943da46.jpg",
   "presetProfileImages": [

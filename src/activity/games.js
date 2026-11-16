@@ -1,5 +1,5 @@
 // Jeux de l'app (les memes maths que les anciennes commandes du chat) :
-// roulette, slots (jackpot progressif), blackjack, mines, duel pierre-feuille-ciseaux.
+// slots (jackpot progressif), blackjack, mines, duel pierre-feuille-ciseaux.
 // Le serveur tire tout ; l'interface ne fait qu'animer le resultat.
 const crypto = require('node:crypto');
 const config = require('../config');
@@ -50,30 +50,6 @@ async function settle(player, { game, bet, payout, allin, feedId, mult = null, t
         announce.send({ content: `🚨 **${player.name}** vient de gagner **${fmt(net)}** ${config.rbEmoji} au **${feed.GAMES[game]?.label || game}** dans l'app !` }).catch(() => {});
     }
     return { net, balance: bal, cut, notices: notices.map(clean) };
-}
-
-// ---------------------------------------------------------------------------
-// ROULETTE : rouge/noir x2, vert x14 (1 chance sur 15)
-// ---------------------------------------------------------------------------
-// la roue : 15 cases (7 rouges, 7 noires, 1 verte)
-const WHEEL = ['red', 'black', 'red', 'black', 'red', 'black', 'red', 'green', 'black', 'red', 'black', 'red', 'black', 'red', 'black'];
-const GREEN_CHANCE = 1 / 15;
-
-async function roulette(player, { color, bet }) {
-    if (!['red', 'black', 'green'].includes(color)) return { error: 'Choisis rouge, noir ou vert.' };
-    const s = await stake(player, bet);
-    if (s.error) return s;
-    const feedId = feed.start({ player, game: 'roulette', bet: s.bet, allin: s.allin, balBefore: s.before, text: { red: 'sur 🔴', black: 'sur ⚫', green: 'sur 🟢' }[color] });
-    const outcome = color === 'green'
-        ? (rnd() < GREEN_CHANCE ? 'green' : pickOne(['red', 'black']))
-        : (rnd() < 0.5 ? 'red' : 'black');
-    const won = outcome === color;
-    const mult = won ? (color === 'green' ? 14 : 2) : 0;
-    const cells = WHEEL.map((c, i) => (c === outcome ? i : -1)).filter((i) => i >= 0);
-    const cell = pickOne(cells);
-    // le resultat n'est revele dans le centre qu'a la fin de l'animation (3 s)
-    const res = await settleLater(player, { game: 'roulette', bet: s.bet, payout: s.bet * mult, allin: s.allin, feedId, mult: won ? mult : 0, text: { red: '🔴', black: '⚫', green: '🟢' }[outcome] }, 3000);
-    return { outcome, cell, mult, wheel: WHEEL, ...res };
 }
 
 /**
@@ -472,7 +448,8 @@ async function duelResolve(d) {
 }
 
 module.exports = {
-    roulette, slots, blackjack, mines, jackpot,
+    slots, blackjack, mines, jackpot,
+    stake, settle, settleLater, rnd,
     initDuels, duelChallenge, duelAnswer, duelPlay,
-    MIN_BET, MAX_BET, GRID, WHEEL,
+    MIN_BET, MAX_BET, GRID,
 };

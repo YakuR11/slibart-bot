@@ -15,6 +15,8 @@ const plinko = require('./plinko');
 const crash = require('./crash');
 const feed = require('./feed');
 const games = require('./games');
+const originals = require('./originals');
+const boost = require('../lib/boost');
 const life = require('./life');
 const loto = require('../lib/loto');
 const skins = require('../lib/skins');
@@ -180,7 +182,14 @@ async function userInfo(id) {
 async function handleReq(ws, room, s, op, a = {}) {
     const player = { id: s.id, name: s.name, avatar: s.avatar, user: s.user, skins: ws.player.skins || null };
     switch (op) {
-        case 'roulette': return games.roulette(player, a);
+        case 'roulette': return originals.roulette(player, a);
+        case 'dice': return originals.dice(player, a);
+        case 'limbo': return originals.limbo(player, a);
+        case 'keno': return originals.keno(player, a);
+        case 'keno.table': return originals.kenoInfo(a);
+        case 'tower': return originals.tower(player, a);
+        case 'hilo': return originals.hilo(player, a);
+        case 'event': return { event: await boost.event() };
         case 'slots': return games.slots(player, a);
         case 'slots.jackpot': return { jackpot: await games.jackpot() };
         case 'blackjack': return games.blackjack(player, a);
@@ -298,7 +307,7 @@ async function api(req, res, route) {
 
     // echange du code OAuth Discord contre un token, puis session de jeu
     if (route === '/api/token' && req.method === 'POST') {
-        const { code } = await readJson(req);
+        const { code, guild } = await readJson(req);
         if (!code) return send(res, 400, { error: 'code manquant' });
         const r = await fetch('https://discord.com/api/oauth2/token', {
             method: 'POST',
@@ -319,6 +328,9 @@ async function api(req, res, route) {
         if (!me?.id) return send(res, 401, { error: 'utilisateur introuvable' });
         const { token, s } = await newSession(me);
         log.info(`[activity] ${s.name} a ouvert le Plinko`);
+        // ouvert depuis un serveur ou le bot est present : c'est son clan s'il n'en a pas encore
+        const home = guild && client?.guilds.cache.get(String(guild));
+        if (home) await require('../lib/clans').seen(home, me.id).catch(() => {});
         return send(res, 200, { access_token: tok.access_token, session: token, me: await profileOf(s) });
     }
 
@@ -470,7 +482,7 @@ async function start(discordClient) {
         const reply = (m) => ws.readyState === 1 && ws.send(JSON.stringify(m));
         reply({ type: 'hello', color: ws.player.color });
         broadcast(room, { type: 'players', players: players(room) });
-        reply({ type: 'feed:init', entries: feed.snapshot() });
+        reply({ type: 'feed:init', entries: feed.snapshot(), now: Date.now() });
         life.assignHouse(s.id).catch(() => {});
         skins.equipped(s.id).then((eq) => {
             ws.player.skins = eq;

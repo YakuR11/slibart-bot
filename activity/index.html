@@ -3,13 +3,13 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Slibart Casino</title>
+    <title>Slibart Puant · Casino</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="cabinet" id="app">
         <header class="marquee">
-            <h1 class="logo">Slibart</h1>
+            <h1 class="logo" id="logo" aria-label="Slibart puant" title="Retour au lobby"></h1>
             <nav class="tabs" role="tablist" aria-label="Pages" id="tabs">
                 <button type="button" role="tab" data-page="casino" aria-selected="true">Casino</button>
                 <button type="button" role="tab" data-page="empire" aria-selected="false">Empire<i class="bang" id="empire-bang" hidden>!</i></button>
@@ -17,11 +17,13 @@
                 <button type="button" role="tab" data-page="map" aria-selected="false">Carte</button>
                 <button type="button" role="tab" data-page="shop" aria-selected="false">Boutique</button>
             </nav>
+            <button type="button" class="event-pill" id="event-pill" hidden aria-label="Événement en cours"><b id="event-mult">×5</b><span id="event-left"></span></button>
             <button type="button" class="goal" id="goal" hidden aria-label="Prochain objectif"><span class="goal-t" id="goal-t"></span><span class="goal-bar"><i id="goal-fill"></i></span></button>
             <ul class="players" id="players" aria-label="Joueurs dans le vocal"></ul>
             <div class="wallet">
                 <button type="button" class="me-btn" id="me-btn" aria-label="Mon profil" title="Mon profil"></button>
                 <span class="level" id="level" title="Ton niveau">niv. –</span>
+                <span class="hot" id="hot" title="Parties gagnées d'affilée" hidden></span>
                 <span class="session" id="session" title="Gains depuis l'ouverture" hidden></span>
                 <span class="balance" id="balance" aria-live="polite">–</span>
                 <button class="icon-btn" id="music" type="button" hidden></button>
@@ -40,18 +42,27 @@
                 <!-- ================= CASINO ================= -->
                 <section class="page" data-page="casino">
                     <nav class="games" id="games" aria-label="Jeux">
-                        <button type="button" data-game="plinko" aria-selected="true">Plinko</button>
+                        <button type="button" data-game="lobby" aria-selected="true">Lobby</button>
+                        <button type="button" data-game="plinko">Plinko</button>
                         <button type="button" data-game="crash">Crash<i class="live" id="crash-live" hidden></i></button>
+                        <button type="button" data-game="mines">Mines</button>
                         <button type="button" data-game="roulette">Roulette</button>
+                        <button type="button" data-game="dice">Dice</button>
+                        <button type="button" data-game="limbo">Limbo</button>
+                        <button type="button" data-game="keno">Keno</button>
+                        <button type="button" data-game="tower">Tour</button>
+                        <button type="button" data-game="hilo">HiLo</button>
                         <button type="button" data-game="slots">Slots</button>
                         <button type="button" data-game="blackjack">Blackjack</button>
-                        <button type="button" data-game="mines">Mines</button>
                         <button type="button" data-game="loto">Loto</button>
                         <button type="button" data-game="duel">Duel<i class="bang" id="duel-bang" hidden>!</i></button>
                     </nav>
 
+                    <!-- LOBBY : construit par son module -->
+                    <main class="lobby view" data-view="lobby" id="v-lobby"></main>
+
                     <!-- PLINKO -->
-                    <main class="playfield view" data-view="plinko">
+                    <main class="playfield view" data-view="plinko" hidden>
                         <div class="stage">
                             <ul class="tribune" id="tribune" aria-label="Tes potes en direct" hidden></ul>
                             <section class="board-wrap" id="board-wrap" aria-label="Plateau">
@@ -149,6 +160,11 @@
 
                     <!-- les autres jeux sont construits par leur module -->
                     <main class="playfield view" data-view="roulette" id="v-roulette" hidden></main>
+                    <main class="playfield view" data-view="dice" id="v-dice" hidden></main>
+                    <main class="playfield view" data-view="limbo" id="v-limbo" hidden></main>
+                    <main class="playfield view" data-view="keno" id="v-keno" hidden></main>
+                    <main class="playfield view" data-view="tower" id="v-tower" hidden></main>
+                    <main class="playfield view" data-view="hilo" id="v-hilo" hidden></main>
                     <main class="playfield view" data-view="slots" id="v-slots" hidden></main>
                     <main class="playfield view" data-view="blackjack" id="v-blackjack" hidden></main>
                     <main class="playfield view" data-view="mines" id="v-mines" hidden></main>

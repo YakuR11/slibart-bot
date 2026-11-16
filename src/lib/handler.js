@@ -141,6 +141,8 @@ async function run(ctx) {
     const stopDefer = ctx.autoDefer();
     try {
         await cmd.run(ctx, ctx.args);
+        // premier passage sur un serveur : le joueur rejoint ce clan
+        if (ctx.guild) await require('./clans').seen(ctx.guild, ctx.user.id).catch((e) => log.warn('[clans]', e.message));
         await welcome(ctx);
         await comeback(ctx);
     } catch (err) {
@@ -170,7 +172,8 @@ async function welcome(ctx) {
             `🎁 \`${p}daily\` tous les jours : RB + un coffre (rare tous les 7 jours)\n` +
             `💼 \`${p}work\` toutes les 30 min\n` +
             `📜 \`${p}quetes\` 3 quêtes par jour + un coffre\n` +
-            `🎰 \`${p}slots\` \`${p}bj\` \`${p}mines\` \`${p}crash\` \`${p}g\` au casino\n` +
+            `🎰 \`${p}slots\` \`${p}bj\` \`${p}mines\` \`${p}crash\` \`${p}roulette\` \`${p}dice\` \`${p}limbo\` au casino\n` +
+            `🩲 \`${p}plinko\` ouvre l'app : 13 jeux avec une vraie interface, tes potes en direct\n` +
             `⚽ \`${p}matchs\` gros matchs foot, Worlds et LEC · \`${p}parier\` pour miser\n` +
             `💎 Jackpot progressif aux slots, loterie à 21h, happy hour surprise le soir\n` +
             `⏱️ \`${p}cd\` : tout ce qui est dispo en 1 clic · \`${p}help\` pour le reste`,
@@ -229,7 +232,11 @@ async function registerSlash(client) {
     if (!config.slashEnabled) return;
     const body = buildSlash();
     try {
-        if (config.guildId) {
+        // un seul serveur : commandes posees dessus (visibles tout de suite).
+        // des que le bot est sur plusieurs serveurs : commandes globales, pour tout le monde.
+        const multi = client.guilds.cache.size > 1;
+        if (config.guildId && multi) await client.guilds.fetch(config.guildId).then((g) => g.commands.set([])).catch(() => {});
+        if (config.guildId && !multi) {
             const guild = await client.guilds.fetch(config.guildId);
             await guild.commands.set(body);
             log.info(`[slash] ${body.length} commandes enregistrees sur le serveur ${guild.name}`);

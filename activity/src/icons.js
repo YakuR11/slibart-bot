@@ -32,6 +32,9 @@ const P = {
     lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
     check: '<path d="m5 12 5 5 9-10"/>',
     arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    tower: '<path d="M7 21V8l-2-2V3h3v2h2.5V3h3v2H16V3h3v3l-2 2v13Z"/><path d="M10.5 21v-4a1.5 1.5 0 0 1 3 0v4M5 21h14"/>',
+    updown: '<path d="M7 20V5M3 9l4-4 4 4M17 4v15M13 15l4 4 4-4"/>',
 };
 
 export function icon(name, size = 18, cls = '') {

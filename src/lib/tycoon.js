@@ -67,6 +67,7 @@ async function state(userId) {
         room,
         foreman: !!p.foreman,
         happy: hm > 1,
+        boost: hm,
         prestige: ps,
         income: {
             work,

@@ -5,7 +5,10 @@ const eco = require('../lib/economy');
 const cd = require('../lib/cooldowns');
 const dd = require('../lib/ddragon');
 const media = require('../lib/media');
-const { fmt } = require('../lib/utils');
+const { fmt, duration } = require('../lib/utils');
+const boost = require('../lib/boost');
+const announce = require('../lib/announce');
+const { EmbedBuilder } = require('discord.js');
 
 const RB = () => config.rbEmoji;
 
@@ -77,10 +80,15 @@ module.exports = [
         name: 'setsalon',
         owner: true,
         category: 'admin',
-        description: '[admin] Salon ou le bot annonce la loterie (celui-ci par defaut)',
+        description: '[admin] Salon ou le bot fait ses annonces sur ce serveur (gros gains, evenements, pluies, loterie)',
         async run(ctx) {
-            await db.setSetting('casino_channel', ctx.channel.id);
-            await ctx.reply(`✅ Les tirages de la loterie seront annoncés dans <#${ctx.channel.id}>.`);
+            await require('../lib/clans').touchGuild(ctx.guild);
+            await db.exec('UPDATE guilds SET casino_channel = ? WHERE id = ?', [ctx.channel.id, ctx.guild.id]);
+            // l'ancien reglage unique suit le serveur principal
+            const legacy = await db.getSetting('casino_channel');
+            const old = legacy ? await ctx.client.channels.fetch(legacy).catch(() => null) : null;
+            if (!old || old.guildId === ctx.guild.id) await db.setSetting('casino_channel', ctx.channel.id);
+            await ctx.reply(`✅ Les annonces du casino sur **${ctx.guild.name}** arrivent dans <#${ctx.channel.id}>.`);
         },
     },
     {
@@ -108,6 +116,68 @@ module.exports = [
         async run(ctx) {
             const res = await require('../lib/recap').send(ctx.client);
             await ctx.reply(res.error ? `❌ ${res.error}` : '✅ Récap envoyé dans #daily.');
+        },
+    },
+    {
+        name: 'event',
+        owner: true,
+        category: 'admin',
+        description: '[admin] Lance un evenement : tous les gains (work, gw, daily, mine, contremaitre, XP) multiplies',
+        usage: '[multiplicateur] [duree] · stop',
+        example: 'event 5 48h',
+        options: [
+            { name: 'mult', type: 'string', description: 'Multiplicateur (2 a 10), ou "stop" pour arreter' },
+            { name: 'duree', type: 'string', description: 'Duree : 48h, 90m, 2j (48h par defaut)' },
+            { name: 'nom', type: 'string', description: 'Nom de l\'evenement (Retour du slip par defaut)' },
+        ],
+        async run(ctx, { mult, duree, nom }) {
+            const cur = await boost.event();
+            if (!mult) {
+                const nextRain = cur ? Number(await db.getSetting('rain_next', '0')) : 0;
+                return ctx.reply(cur
+                    ? `🩲 **${cur.name}** en cours : gains **x${cur.mult}**, fin <t:${Math.floor(cur.end / 1000)}:R>.${nextRain > Date.now() ? ` Prochaine pluie de slips vers <t:${Math.floor(nextRain / 1000)}:t>.` : ''} \`${config.prefix}pluie\` pour en lâcher une, \`${config.prefix}event stop\` pour arrêter.`
+                    : `Aucun événement en cours. Lance le retour du slip : \`${config.prefix}event 5 48h\``);
+            }
+            if (String(mult).toLowerCase() === 'stop') {
+                if (!cur) return ctx.reply('Aucun événement en cours.');
+                await boost.stopEvent();
+                return ctx.reply(`🛑 **${cur.name}** arrêté. Les gains repassent à la normale.`);
+            }
+            const m = Math.floor(Number(String(mult).replace(/^x/i, '')));
+            if (!(m >= 2 && m <= 10)) return ctx.fail('Multiplicateur entre 2 et 10 (ex. `event 5 48h`).');
+            const d = String(duree || '48h').toLowerCase().match(/^(\d+(?:[.,]\d+)?)\s*(m|min|h|j|d)?$/);
+            if (!d) return ctx.fail('Durée invalide : `48h`, `90m`, `2j`.');
+            const unit = { m: 60_000, min: 60_000, h: 3_600_000, j: 86_400_000, d: 86_400_000 }[d[2] || 'h'];
+            const ms = Math.round(parseFloat(d[1].replace(',', '.')) * unit);
+            if (!(ms >= 60_000 && ms <= 14 * 86_400_000)) return ctx.fail('Durée entre 1 minute et 14 jours.');
+            const ev = await boost.startEvent(m, ms, nom ? String(nom).slice(0, 40) : 'Retour du slip');
+            const end = Math.floor(ev.end / 1000);
+            const embed = new EmbedBuilder()
+                .setColor('#2ee62b')
+                .setTitle(`🩲💨 ${ev.name.toUpperCase()} · GAINS x${ev.mult} 💨🩲`)
+                .setDescription(
+                    `Le slip est de retour et il sent **très** fort.\n\n` +
+                    `Pendant **${duration(ms)}**, tout ce qui rapporte est **x${ev.mult}** :\n` +
+                    `> 💼 \`${config.prefix}work\` · 🎲 \`${config.prefix}gw\` · 🎁 \`${config.prefix}daily\` · ⛏️ \`${config.prefix}mine\`\n` +
+                    `> ⏱️ le salaire du contremaître · ⭐ **toute l'XP** (casino compris)\n` +
+                    `> ☔ des **pluies de slips** tombent ici **sans prévenir** (5 lots, premiers arrivés) et les sacs du chat tombent 3x plus souvent\n\n` +
+                    (nom ? '' : `Et le casino de l'app a été refait : **vraie roulette, Dice, Limbo, Keno, Tour du Slip, HiLo** (\`${config.prefix}plinko\` pour l'ouvrir).\n`) +
+                    `Fin <t:${end}:R> (<t:${end}:f>). \`${config.prefix}cd\` pour tout ramasser d'un coup.`,
+                );
+            const sent = await announce.send({ content: '@here', allowedMentions: { parse: ['everyone'] }, embeds: [embed] }, ctx.channel.id);
+            await ctx.reply(sent ? { content: `✅ Événement lancé et annoncé dans <#${sent.channel.id}>.` } : { content: '@here', allowedMentions: { parse: ['everyone'] }, embeds: [embed] });
+        },
+    },
+    {
+        name: 'pluie',
+        owner: true,
+        category: 'admin',
+        description: '[admin] Lache une pluie de slips maintenant (5 lots) dans le salon du casino de chaque serveur',
+        async run(ctx) {
+            const rain = require('../lib/rain');
+            const sent = await rain.pourEverywhere();
+            if (sent.length) return ctx.whisper(`☔ Pluie lâchée dans ${sent.length} salon(s).`);
+            await rain.pour(ctx.channel);
         },
     },
     {

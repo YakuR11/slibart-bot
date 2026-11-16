@@ -2,7 +2,7 @@
 import { el, fmt } from '../ui.js';
 import { avatarEl } from '../avatar.js';
 
-const GAMES = { plinko: 'Plinko', crash: 'Crash', roulette: 'Roulette', slots: 'Slots', blackjack: 'Blackjack', mines: 'Mines', loto: 'Loto', duel: 'Duel' };
+const GAMES = { plinko: 'Plinko', crash: 'Crash', roulette: 'Roulette', slots: 'Slots', blackjack: 'Blackjack', mines: 'Mines', loto: 'Loto', duel: 'Duel', dice: 'Dice', limbo: 'Limbo', keno: 'Keno', tower: 'Tour du Slip', hilo: 'HiLo' };
 
 export async function openProfile(app, id) {
     const modal = document.getElementById('modal');

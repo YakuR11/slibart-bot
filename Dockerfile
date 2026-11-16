@@ -7,6 +7,8 @@ COPY activity ./activity
 COPY scripts ./scripts
 # le catalogue des skins est partage entre le bot et l'interface
 COPY src/lib/skins-catalog.js ./src/lib/skins-catalog.js
+# la table des paris de la roulette aussi
+COPY src/lib/roulette-math.js ./src/lib/roulette-math.js
 RUN node scripts/build-activity.js
 
 # 2) image finale du bot (sans les outils de build)

@@ -20,7 +20,9 @@ const lastDrop = new Map();
 
 async function maybeDrop(message) {
     const last = lastDrop.get(message.channel.id) || 0;
-    if (Date.now() - last < DROP_GAP || Math.random() > DROP_CHANCE) return;
+    // pendant un evenement (=event) : 3x plus de sacs, 5 min entre deux
+    const hot = !!(await require('../lib/boost').event());
+    if (Date.now() - last < (hot ? DROP_GAP / 3 : DROP_GAP) || Math.random() > (hot ? DROP_CHANCE * 3 : DROP_CHANCE)) return;
     lastDrop.set(message.channel.id, Date.now());
     const r = Math.random();
     const loot = r < 0.03 ? { type: 'coffre_legend' } : r < 0.15 ? { type: 'coffre_rare' } : r < 0.40 ? { type: 'coffre' } : { type: 'rb', n: randInt(2, 15) * 100 };
