@@ -9,6 +9,7 @@ const media = require('./lib/media');
 const scheduler = require('./lib/scheduler');
 const activity = require('./activity/server');
 const ops = require('./lib/ops');
+const clans = require('./lib/clans');
 
 // Voir, ecrire, embeds, fichiers, historique, reactions, gerer les messages, emojis externes, @here.
 // Pas Administrateur : le bot n'en a pas besoin, et un lien public ne doit pas le demander.
@@ -54,6 +55,8 @@ client.once(Events.ClientReady, async (c) => {
         log.warn(`[emoji] ${config.rbEmoji} inaccessible (le bot n'est pas sur le serveur de l'emoji) -> 💰`);
         config.rbEmoji = '💰';
     }
+    // un serveur = un clan : on note tous ceux ou le bot est deja
+    for (const g of c.guilds.cache.values()) await clans.touchGuild(g).catch(() => {});
     media.start();
     scheduler.start(c);
     const activityServer = await activity.start(c);
@@ -77,6 +80,13 @@ client.on(Events.MessageCreate, async (message) => {
 
 client.on(Events.InteractionCreate, (interaction) => {
     handler.handleInteraction(client, interaction).catch((e) => log.error('[interaction]', e));
+});
+
+// le bot arrive sur un nouveau serveur : nouveau clan, et les slash commands passent en global
+client.on(Events.GuildCreate, async (guild) => {
+    log.info(`[clans] nouveau serveur : ${guild.name} (${guild.memberCount} membres)`);
+    await clans.touchGuild(guild).catch(() => {});
+    await handler.registerSlash(client);
 });
 
 client.on(Events.Error, (e) => log.error('[client]', e.message));

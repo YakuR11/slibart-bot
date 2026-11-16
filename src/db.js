@@ -54,13 +54,14 @@ const COUNTERS = [
     'rb', 'wacount', 'insultcount', 'slavecount', 'cavecount', 'pertecount',
     'wincount', 'gamblecount', 'minecount', 'daily_last', 'daily_streak',
     'xp', 'level', 'remind', 'duelwins', 'maxwin', 'winstreak', 'bestwinstreak', 'last_seen', 'debt',
-    'foreman', 'prestige',
+    'foreman', 'prestige', 'clan_at',
 ];
 
 const PROFILE_EXTRA = {
     img: 'TEXT NULL',
     bio: 'TEXT NULL',
     acc: 'VARCHAR(100) NULL',
+    clan: 'VARCHAR(32) NULL', // serveur du joueur pour la guerre de clans
 };
 
 async function columns(table) {
@@ -177,6 +178,13 @@ async function migrate() {
         skin VARCHAR(48) NOT NULL,
         PRIMARY KEY (id_user, slot)
     )`);
+    // serveurs ou le bot est present (un serveur = un clan) et leur salon d'annonce
+    await exec(`CREATE TABLE IF NOT EXISTS guilds (
+        id VARCHAR(32) NOT NULL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        casino_channel VARCHAR(32) NULL,
+        joined_at BIGINT NOT NULL DEFAULT 0
+    ) CHARACTER SET utf8mb4`);
     // journal des paris de l'app (recap du jour dans #daily)
     await exec(`CREATE TABLE IF NOT EXISTS gamble_log (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,

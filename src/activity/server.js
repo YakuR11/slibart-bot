@@ -182,6 +182,7 @@ async function userInfo(id) {
 async function handleReq(ws, room, s, op, a = {}) {
     const player = { id: s.id, name: s.name, avatar: s.avatar, user: s.user, skins: ws.player.skins || null };
     switch (op) {
+        case 'roulette': return originals.roulette(player, a);
         case 'dice': return originals.dice(player, a);
         case 'limbo': return originals.limbo(player, a);
         case 'keno': return originals.keno(player, a);
@@ -306,7 +307,7 @@ async function api(req, res, route) {
 
     // echange du code OAuth Discord contre un token, puis session de jeu
     if (route === '/api/token' && req.method === 'POST') {
-        const { code } = await readJson(req);
+        const { code, guild } = await readJson(req);
         if (!code) return send(res, 400, { error: 'code manquant' });
         const r = await fetch('https://discord.com/api/oauth2/token', {
             method: 'POST',
@@ -327,6 +328,9 @@ async function api(req, res, route) {
         if (!me?.id) return send(res, 401, { error: 'utilisateur introuvable' });
         const { token, s } = await newSession(me);
         log.info(`[activity] ${s.name} a ouvert le Plinko`);
+        // ouvert depuis un serveur ou le bot est present : c'est son clan s'il n'en a pas encore
+        const home = guild && client?.guilds.cache.get(String(guild));
+        if (home) await require('../lib/clans').seen(home, me.id).catch(() => {});
         return send(res, 200, { access_token: tok.access_token, session: token, me: await profileOf(s) });
     }
 

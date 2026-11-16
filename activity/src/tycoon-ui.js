@@ -140,7 +140,7 @@ export async function awayReport(app, st) {
 // tuto du premier lancement : 4 bulles, passable a tout moment
 // ---------------------------------------------------------------------------
 const STEPS = [
-    { sel: '.lb-grid', title: 'Choisis un jeu', text: '12 jeux. Tu tapes juste ta mise, le reste c\'est des boutons. Le logo te ramène ici.' },
+    { sel: '.lb-grid', title: 'Choisis un jeu', text: 'Tu tapes juste ta mise, le reste c\'est des boutons. Le logo te ramène ici.' },
     { sel: '#live-feed, .feed-col', title: 'Les paris en direct', text: 'Tout le monde voit les paris de tout le monde. Les gros tapis illuminent l\'écran.' },
     { sel: '#tabs [data-page="empire"]', title: 'Ton empire', text: 'Achète des esclaves et des caves : ton salaire =w monte. Un « ! » s\'allume quand tu peux acheter.' },
     { sel: '#goal', title: 'Ton prochain objectif', text: 'Clique dessus pour aller l\'acheter.' },

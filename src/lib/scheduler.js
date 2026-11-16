@@ -104,12 +104,29 @@ async function eventTick() {
     }
 }
 
+// guerre de clans : le serveur qui a le plus gros gain net de la semaine gagne (il en faut au moins deux)
+async function clanWar(week) {
+    const clans = require('./clans');
+    const inv = require('./inventory');
+    const { fmt } = require('./utils');
+    const res = await clans.payWar(week);
+    if (!res) return;
+    const lines = res.table.map((c, i) => `${['🥇', '🥈', '🥉'][i] || `${i + 1}.`} **${c.name}** — ${c.net >= 0 ? '+' : '-'}${fmt(Math.abs(c.net))} ${config.rbEmoji} · ${c.players} joueur${c.players > 1 ? 's' : ''}`);
+    await announce.send({
+        embeds: [new EmbedBuilder()
+            .setColor('#f1c40f')
+            .setTitle(`⚔️ GUERRE DE CLANS : ${res.winner.name.toUpperCase()} GAGNE`)
+            .setDescription(`${lines.join('\n')}\n\nLes **${res.paid}** membres de **${res.winner.name}** qui ont joué cette semaine reçoivent **${fmt(clans.WAR_RB)}** ${config.rbEmoji} + ${inv.label(clans.WAR_CRATE)}.\nNouvelle guerre lancée. \`${config.prefix}clan\``)],
+    });
+}
+
 async function weeklyTick(client) {
     const p = paris.now();
     if (p.dow !== 0 || p.h < 21) return;
     const week = paris.weekKey();
     if ((await db.getSetting('weekly_paid')) === week) return;
     await db.setSetting('weekly_paid', week);
+    await clanWar(week);
     const res = await payWeekly(client, announce);
     if (res) log.info(`[saison] ${week} payee a ${res.length} joueur(s)`);
 }
@@ -157,6 +174,7 @@ function start(client) {
     setInterval(safe('loto', () => lotteryTick(client)), 30_000).unref();
     setInterval(safe('happy', () => happyTick()), 30_000).unref();
     setInterval(safe('event', () => eventTick()), 30_000).unref();
+    setInterval(safe('pluie', () => require('./rain').tick()), 30_000).unref();
     setInterval(safe('saison', () => weeklyTick(client)), 60_000).unref();
     setInterval(safe('sport', () => sports.tick(client)), 60_000).unref();
     setInterval(safe('recap', () => recapTick(client)), 60_000).unref();

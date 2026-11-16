@@ -4,6 +4,7 @@ const games = require('./games');
 const feed = require('./feed');
 const eco = require('../lib/economy');
 const m = require('./origmath');
+const rl = require('../lib/roulette-math');
 
 const { stake, settleLater, rnd } = games;
 const round2 = (x) => Math.round(x * 100) / 100;
@@ -204,4 +205,24 @@ async function hilo(player, { action, bet, guess }) {
     return { error: 'Action inconnue.' };
 }
 
-module.exports = { dice, limbo, keno, kenoInfo, tower, hilo };
+// ---------------------------------------------------------------------------
+// ROULETTE europeenne : autant de jetons qu'on veut sur le tapis, un seul tirage
+// ---------------------------------------------------------------------------
+const DOT = { red: '🔴', black: '⚫', green: '🟢' };
+async function roulette(player, { bets }) {
+    const clean = rl.normalize(bets);
+    if (clean.error) return clean;
+    const s = await stake(player, clean.total);
+    if (s.error) return s;
+    const k = clean.bets.length;
+    const only = k === 1 ? rl.BETS.get(clean.bets[0].id) : null;
+    const feedId = feed.start({ player, game: 'roulette', bet: s.bet, allin: s.allin, balBefore: s.before, text: only ? `${only.kind} ${only.label}` : `${k} paris` });
+    const n = rl.spin(rnd);
+    const { payout, wins } = rl.settle(clean.bets, n);
+    const mult = round2(payout / s.bet);
+    // le resultat sort dans le centre des paris quand la bille s'arrete chez le joueur
+    const res = await settleLater(player, { game: 'roulette', bet: s.bet, payout, allin: s.allin, feedId, mult, text: `${DOT[rl.color(n)]} ${n}` }, 4300);
+    return { n, color: rl.color(n), payout, wins, total: s.bet, mult, ...res };
+}
+
+module.exports = { dice, limbo, keno, kenoInfo, tower, hilo, roulette };

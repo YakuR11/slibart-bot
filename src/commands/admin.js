@@ -80,10 +80,15 @@ module.exports = [
         name: 'setsalon',
         owner: true,
         category: 'admin',
-        description: '[admin] Salon ou le bot annonce la loterie (celui-ci par defaut)',
+        description: '[admin] Salon ou le bot fait ses annonces sur ce serveur (gros gains, evenements, pluies, loterie)',
         async run(ctx) {
-            await db.setSetting('casino_channel', ctx.channel.id);
-            await ctx.reply(`✅ Les tirages de la loterie seront annoncés dans <#${ctx.channel.id}>.`);
+            await require('../lib/clans').touchGuild(ctx.guild);
+            await db.exec('UPDATE guilds SET casino_channel = ? WHERE id = ?', [ctx.channel.id, ctx.guild.id]);
+            // l'ancien reglage unique suit le serveur principal
+            const legacy = await db.getSetting('casino_channel');
+            const old = legacy ? await ctx.client.channels.fetch(legacy).catch(() => null) : null;
+            if (!old || old.guildId === ctx.guild.id) await db.setSetting('casino_channel', ctx.channel.id);
+            await ctx.reply(`✅ Les annonces du casino sur **${ctx.guild.name}** arrivent dans <#${ctx.channel.id}>.`);
         },
     },
     {
@@ -128,8 +133,9 @@ module.exports = [
         async run(ctx, { mult, duree, nom }) {
             const cur = await boost.event();
             if (!mult) {
+                const nextRain = cur ? Number(await db.getSetting('rain_next', '0')) : 0;
                 return ctx.reply(cur
-                    ? `🩲 **${cur.name}** en cours : gains **x${cur.mult}**, fin <t:${Math.floor(cur.end / 1000)}:R>. \`${config.prefix}event stop\` pour l'arrêter.`
+                    ? `🩲 **${cur.name}** en cours : gains **x${cur.mult}**, fin <t:${Math.floor(cur.end / 1000)}:R>.${nextRain > Date.now() ? ` Prochaine pluie de slips vers <t:${Math.floor(nextRain / 1000)}:t>.` : ''} \`${config.prefix}pluie\` pour en lâcher une, \`${config.prefix}event stop\` pour arrêter.`
                     : `Aucun événement en cours. Lance le retour du slip : \`${config.prefix}event 5 48h\``);
             }
             if (String(mult).toLowerCase() === 'stop') {
@@ -153,12 +159,25 @@ module.exports = [
                     `Le slip est de retour et il sent **très** fort.\n\n` +
                     `Pendant **${duration(ms)}**, tout ce qui rapporte est **x${ev.mult}** :\n` +
                     `> 💼 \`${config.prefix}work\` · 🎲 \`${config.prefix}gw\` · 🎁 \`${config.prefix}daily\` · ⛏️ \`${config.prefix}mine\`\n` +
-                    `> ⏱️ le salaire du contremaître · ⭐ **toute l'XP** (casino compris)\n\n` +
-                    (nom ? '' : `Et le casino de l'app a été refait : **Dice, Limbo, Keno, Tour du Slip, HiLo** en plus (\`${config.prefix}plinko\` pour l'ouvrir).\n`) +
+                    `> ⏱️ le salaire du contremaître · ⭐ **toute l'XP** (casino compris)\n` +
+                    `> ☔ des **pluies de slips** tombent ici **sans prévenir** (5 lots, premiers arrivés) et les sacs du chat tombent 3x plus souvent\n\n` +
+                    (nom ? '' : `Et le casino de l'app a été refait : **vraie roulette, Dice, Limbo, Keno, Tour du Slip, HiLo** (\`${config.prefix}plinko\` pour l'ouvrir).\n`) +
                     `Fin <t:${end}:R> (<t:${end}:f>). \`${config.prefix}cd\` pour tout ramasser d'un coup.`,
                 );
             const sent = await announce.send({ content: '@here', allowedMentions: { parse: ['everyone'] }, embeds: [embed] }, ctx.channel.id);
             await ctx.reply(sent ? { content: `✅ Événement lancé et annoncé dans <#${sent.channel.id}>.` } : { content: '@here', allowedMentions: { parse: ['everyone'] }, embeds: [embed] });
+        },
+    },
+    {
+        name: 'pluie',
+        owner: true,
+        category: 'admin',
+        description: '[admin] Lache une pluie de slips maintenant (5 lots) dans le salon du casino de chaque serveur',
+        async run(ctx) {
+            const rain = require('../lib/rain');
+            const sent = await rain.pourEverywhere();
+            if (sent.length) return ctx.whisper(`☔ Pluie lâchée dans ${sent.length} salon(s).`);
+            await rain.pour(ctx.channel);
         },
     },
     {

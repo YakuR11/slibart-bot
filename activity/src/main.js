@@ -5,6 +5,7 @@ import { CrashView } from './crash.js';
 import { fx } from './fx.js';
 import { avatarEl, setFrame, DEFAULTS } from './avatar.js';
 import { FeedView } from './views/feed.js';
+import { RouletteView } from './views/roulette.js';
 import { DiceView } from './views/dice.js';
 import { LimboView } from './views/limbo.js';
 import { KenoView } from './views/keno.js';
@@ -704,7 +705,7 @@ async function login() {
             prompt: 'none',
             scope: ['identify'],
         });
-        const { ok, data } = await api('api/token', { code });
+        const { ok, data } = await api('api/token', { code, guild: sdk.guildId || null });
         if (!ok) throw new Error(data.error || 'connexion refusée');
         await sdk.commands.authenticate({ access_token: data.access_token });
         state.room = sdk.instanceId || sdk.channelId || 'lobby';
@@ -822,7 +823,7 @@ setMuteIcon(sound.muted);
 const music = new Music($('music'), () => sound.muted);
 $('music').innerHTML = icon('music', 18);
 // icones SVG dans la navigation (pas d'emojis en guise d'icones)
-const NAV_ICONS = { casino: 'casino', empire: 'crown', paris: 'trophy', map: 'map', shop: 'bag', lobby: 'home', plinko: 'target', crash: 'rocket', slots: 'slots', blackjack: 'cards', mines: 'bomb', loto: 'ticket', duel: 'swords', dice: 'dice', limbo: 'zap', keno: 'grid', tower: 'tower', hilo: 'updown' };
+const NAV_ICONS = { casino: 'casino', empire: 'crown', paris: 'trophy', map: 'map', shop: 'bag', lobby: 'home', roulette: 'roulette', plinko: 'target', crash: 'rocket', slots: 'slots', blackjack: 'cards', mines: 'bomb', loto: 'ticket', duel: 'swords', dice: 'dice', limbo: 'zap', keno: 'grid', tower: 'tower', hilo: 'updown' };
 for (const b of document.querySelectorAll('[data-page], #games [data-game]')) {
     const k = b.dataset.page || b.dataset.game;
     if (NAV_ICONS[k] && b.tagName === 'BUTTON') b.insertAdjacentHTML('afterbegin', icon(NAV_ICONS[k], 16));
@@ -986,6 +987,7 @@ const crash = new CrashView({
     get minBet() { return state.cfg?.minBet || 10; },
 });
 const views = {
+    roulette: new RouletteView($('v-roulette'), app),
     dice: new DiceView($('v-dice'), app),
     limbo: new LimboView($('v-limbo'), app),
     keno: new KenoView($('v-keno'), app),
@@ -1081,6 +1083,7 @@ function setGame(game) {
     crash.show(state.page === 'casino' && game === 'crash');
     if (game === 'plinko') board.resize();
     views[game]?.show?.(true);
+    if (game !== 'roulette') views.roulette.show(false);
     if (game === 'duel') $('duel-bang').hidden = true;
     if (game === 'lobby') lobby.show();
     else lobby.setLast(game);

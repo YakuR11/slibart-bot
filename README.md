@@ -68,13 +68,14 @@ Tout est dans `config/content.json` : images de `=cold`/`=remember`/`=bubble`, p
 | Général | `cold` `remember` `bubble` `trad [langue] <texte>` `musique <type>` `changemot <mot>` `motfav [@user]` |
 | Profil | `profile [@user]` (`p`) · `set <img\|acc\|bio> <valeur>` · `setimg` `setbio` `setacc` · `wacount` |
 | Capitalism | `bank` (`b`) · `work` (`w`) · `gw` · `daily` · `rsa` · `rob <@user>` · `give <@user> <montant>` · `shop` · `buy <slave\|cave\|contremaitre\|cadenas>` · `mine` (`m`) |
-| Casino | `plinko` (interface) · `dice <mise> [chance %]` · `limbo <mise> [cible]` · `gamble <r\|b\|g> <mise>` (`g`) · `slots <mise>` · `blackjack <mise>` (`bj`) · `mines <mise> [bombes]` · `crash <mise> [auto]` · `loto [tickets]` · `duel <@user> <mise>` |
+| Casino | `plinko` (interface) · `dice <mise> [chance %]` · `limbo <mise> [cible]` · `roulette <mise> <paris...>` (`g`) · `slots <mise>` · `blackjack <mise>` (`bj`) · `mines <mise> [bombes]` · `crash <mise> [auto]` · `loto [tickets]` · `duel <@user> <mise>` |
 | Paris | `matchs [foot\|lol]` · `parier <n°> <1\|N\|2> <mise>` · `mesparis` · `elo` |
 | Progression | `cd` · `coffres` · `ouvrir` · `quetes` (`q`) · `succes` · `niveau` (`lvl`) · `rappels` |
+| Clans | `clan` (guerre de la semaine entre serveurs) · `clan rejoindre` |
 | Classements | `semaine` (saison) · `top <capital\|niveau\|succes\|winstreak\|insult\|rolls\|mine\|pertes\|gains\|streak\|esclaves\|champions>` · `topc` `topi` `topl`... · `slipbank` |
 | Champions | `rc` · `info <champion>` · `mmr [@user]` (`cave`) · `release <champion>` · `giftchamp <@user> <champion>` |
 | Utilitaires | `help [commande]` · `ping` · `botinfo` |
-| Admin (OWNER_IDS) | `event [mult] [durée]` · `addrb` · `setrb` · `resetcd` · `setsalon` · `drawloto` · `images` · `syncchamps` |
+| Admin (OWNER_IDS) | `event [mult] [durée]` · `pluie` · `addrb` · `setrb` · `resetcd` · `setsalon` · `drawloto` · `images` · `syncchamps` |
 
 Les mises acceptent `all`, `half`, `1k`, `2.5k`, `1m`. Chaque résultat de casino a des boutons **Rejouer / ½ / x2 / All-in**.
 
@@ -83,6 +84,7 @@ Les mises acceptent `all`, `half`, `1k`, `2.5k`, `1m`. Chaque résultat de casin
 `=event 5 48h` (admin) : pendant 48h, tout ce qui rapporte est **x5** : `work`, `gw`, `daily`, `mine`, le salaire du contremaître et toute l'XP. Annonce avec @here dans le salon du casino (`=setsalon`), rappel 2h avant la fin, annonce de fin. Dans l'app : pastille avec le compte à rebours dans l'en-tête et bandeau vert dans le lobby.
 
 - `=event` : état en cours · `=event stop` : arrêt · `=event 3 2j Nom de l'event` : multiplicateur de 2 à 10, durée en `m`, `h` ou `j`
+- **Pluies de slips** : pendant l'événement, toutes les 75 à 165 min entre 11h et 1h (heure de Paris), 5 lots tombent dans le salon du casino de chaque serveur, sans @here. Les 5 premiers à cliquer se servent (un lot par personne). `=pluie` en lâche une à la main. Les sacs du chat tombent aussi 3x plus souvent.
 - Les gains du casino ne sont **pas** multipliés : un x5 sur des jeux qui reversent ~98 % ferait gagner à tous les coups et casserait l'économie et la saison. Le casino donne en revanche de l'XP x5.
 - Pendant un événement, la happy hour (x2) ne s'ajoute pas : c'est le plus gros des deux qui compte.
 
@@ -148,15 +150,25 @@ Ajouter une commande = ajouter un objet dans un fichier de `src/commands/`, elle
 
 `=credit <montant>` : emprunt avec **10 % de frais**. Plafond de dette selon le niveau : **5 000 + 3 000 par niveau** (max 250 000). Tant qu'il reste une dette, une part de tout ce qui rentre part à la banque (10 % à 50 %) et `=give` est bloqué (sinon on pourrait emprunter et tout donner à un pote). `=rembourser <montant|all>` pour solder plus vite.
 
+## ⚔️ Plusieurs serveurs : la guerre de clans
+
+Le bot peut être invité sur plusieurs serveurs. **Un serveur = un clan.** Le compte en banque d'un joueur est le même partout ; il appartient au premier serveur où il utilise le bot (ou ouvre l'app), et peut changer avec `=clan rejoindre` une fois par semaine.
+
+- `=clan` : classement de la semaine, par serveur, au **gain net du casino** de ses membres (la même base que `=semaine`). Le dimanche à 21h, s'il y a au moins deux serveurs qui ont joué, chaque membre du serveur gagnant qui a joué reçoit 1 000 RB + un coffre rare.
+- `=setsalon` se fait **sur chaque serveur** : gros gains, événements, pluies, loterie et fin de saison sont annoncés dans tous. Un gros gain sur un serveur s'affiche donc chez les autres.
+- Slash commands : avec un seul serveur elles sont posées sur `GUILD_ID` ; dès que le bot est sur deux serveurs il les passe en global tout seul (quelques minutes de délai côté Discord).
+- Pas encore par serveur : le fil des paris de l'app dans `#bot`, le récap de `#daily` et le message de vie `ops` restent sur le serveur principal (`GUILD_ID`). La carte du quartier et les classements `=top` sont communs à tous les serveurs.
+
 ## 🩲 L'app : le casino du slip (Activity Discord)
 
-L'app s'ouvre sur un **lobby** : bandeau (événement en cours ou reprise de la dernière table), quêtes du jour, puis les 12 jeux en cartes illustrées. Sous chaque carte, le nombre de joueurs vus sur ce jeu dans les 5 dernières minutes (les vrais, rien d'inventé).
+L'app s'ouvre sur un **lobby** : bandeau (événement en cours ou reprise de la dernière table), quêtes du jour, puis les 13 jeux en cartes illustrées. Sous chaque carte, le nombre de joueurs vus sur ce jeu dans les 5 dernières minutes (les vrais, rien d'inventé).
 
 | Jeu | Principe | Retour au joueur |
 |---|---|---|
 | Plinko | billes, 3 risques, 8/12/16 rangées, jusqu'à x1000 | ~99 % |
 | Crash | manche commune en direct, encaisse avant l'explosion | voir `crash.js` |
 | Mines | 20 cases, 1 à 15 bombes | 97 % |
+| **Roulette** | européenne (0 à 36) : vrai tapis, jetons, pleins, chevaux, transversales, carrés, sixains, douzaines, colonnes, chances simples | 97,3 % |
 | **Dice** | tirage de 0 à 100, tu règles ta chance (1 à 95 %) au curseur | 98 % |
 | **Limbo** | tu vises un multiplicateur (x1.01 à x1000) | 98 % |
 | **Keno** | 40 numéros, 1 à 10 cochés, 10 tirés, 3 risques, plafond x1000 | ~97,5 % |
@@ -164,7 +176,7 @@ L'app s'ouvre sur un **lobby** : bandeau (événement en cours ou reprise de la 
 | **HiLo** | plus haute ou plus basse, encaisse quand tu veux | ~98 % |
 | Slots, Blackjack, Loto, Duel | comme avant | |
 
-La roulette a été retirée de l'app (`=gamble` existe toujours dans le chat). Les maths des cinq nouveaux jeux sont dans `src/activity/origmath.js` ; `node scripts/originals-sim.js` recalcule le retour de chaque table. Dice, Limbo et Keno ont un mode rafale (10 / 25 / 50 / ∞), Espace relance la partie, et une Tour ou un HiLo laissé en cours se reprend à la réouverture.
+L'ancienne roulette à 15 cases a été remplacée par une vraie roulette européenne, dans l'app et dans le chat : `=roulette 100 rouge 17 17-18 d2` mise 100 sur chaque pari (`=g r 500` marche toujours). La table des paris est dans `src/lib/roulette-math.js`, partagée entre le bot, le serveur et l'interface. Les maths des cinq autres nouveaux jeux sont dans `src/activity/origmath.js` ; `node scripts/originals-sim.js` recalcule le retour de chaque table. Dice, Limbo et Keno ont un mode rafale (10 / 25 / 50 / ∞), Espace relance la partie, et une Tour ou un HiLo laissé en cours se reprend à la réouverture.
 
 Toutes les illustrations (cartes, logo, slips) sont dessinées en SVG dans `activity/src/art.js` : pour changer une carte, sa couleur ou son étiquette, c'est la liste `GAMES` en bas de ce fichier.
 

@@ -96,7 +96,7 @@ export class LobbyView {
         } else {
             const g = this.last ? this.name(this.last) : null;
             this.heroTitle.textContent = g ? 'Le slip t\'attendait' : 'Bienvenue au casino du slip';
-            this.heroSub.textContent = g ? `Ta dernière table : ${g}. Elle est encore chaude.` : '12 jeux, tes potes en direct à gauche, et un slip qui sent très fort.';
+            this.heroSub.textContent = g ? `Ta dernière table : ${g}. Elle est encore chaude.` : `${GAMES.length} jeux, tes potes en direct à gauche, et un slip qui sent très fort.`;
             this.heroCta.textContent = g ? `Reprendre ${g}` : 'Jouer aux Mines';
             this.heroAlt.textContent = 'Voir mon empire';
             this.heroAlt.onclick = () => this.app.goPage('empire');
