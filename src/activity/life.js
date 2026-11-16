@@ -6,23 +6,39 @@ const skins = require('../lib/skins');
 const { fmt } = require('../lib/utils');
 
 // ===========================================================================
-// CARTE : un petit quartier, 20 maisons, pas une par membre
+// CARTE : un quartier de 48 maisons (8 x 6), pas une par membre
 // ===========================================================================
+// monde 1500 x 1060. Le quartier d'origine (20 maisons) est le coin haut gauche : ses maisons
+// n'ont pas bouge, on a prolonge les rues et ajoute deux rues vers l'est et deux vers le sud.
+const WORLD = { w: 1500, h: 1060 };
+const X0 = 60;
+const X1 = 1440;
+const Y0 = 60;
+const Y1 = 1000;
 const STREETS = [
-    { name: 'Avenue 16 ans et 10 mois', a: [60, 150], b: [940, 150] },
-    { name: 'Rue Karl Marx', a: [60, 330], b: [940, 330] },
-    { name: 'Boulevard Boris', a: [60, 510], b: [940, 510] },
-    { name: 'Avenue LAMINE', a: [250, 60], b: [250, 640] },
-    { name: 'Rue Ostiax', a: [500, 60], b: [500, 640] },
-    { name: 'Rue Rebbeca-lover', a: [750, 60], b: [750, 640] },
-    { name: 'Avenue Kaqaman', a: [60, 60], b: [60, 640] },
-    { name: 'Impasse du Slip', a: [940, 60], b: [940, 640] },
+    { name: 'Avenue 16 ans et 10 mois', a: [X0, 150], b: [X1, 150] },
+    { name: 'Rue Karl Marx', a: [X0, 330], b: [X1, 330] },
+    { name: 'Boulevard Boris', a: [X0, 510], b: [X1, 510] },
+    { name: 'Avenue LAMINE', a: [250, Y0], b: [250, Y1] },
+    { name: 'Rue Ostiax', a: [500, Y0], b: [500, Y1] },
+    { name: 'Rue Rebbeca-lover', a: [750, Y0], b: [750, Y1] },
+    { name: 'Avenue Kaqaman', a: [X0, Y0], b: [X0, Y1] },
+    { name: 'Impasse du Slip', a: [940, Y0], b: [940, Y1] },
+    // extension
+    { name: 'Rue du Slip Propre', a: [X0, 690], b: [X1, 690] },
+    { name: 'Boulevard du Tapis', a: [X0, 870], b: [X1, 870] },
+    { name: 'Avenue du Plinko', a: [1190, Y0], b: [1190, Y1] },
+    { name: 'Allée des Pluies', a: [X1, Y0], b: [X1, Y1] },
 ];
-// emplacements des maisons (dans les blocs entre les rues), monde 1000 x 700 : 4 rangees x 5 = 20
+// emplacements des maisons, dans les blocs entre les rues. Les 20 premiers gardent leur numero
+// (ce sont eux qui sont en base), les nouveaux viennent apres.
+const OLD_X = [155, 325, 425, 625, 845];
+const OLD_Y = [100, 245, 425, 600];
+const ALL_X = [...OLD_X, 1015, 1115, 1315];
+const ALL_Y = [...OLD_Y, 780, 960];
 const PLOTS = [];
-for (const y of [100, 245, 425, 600]) {
-    for (const x of [155, 325, 425, 625, 845]) PLOTS.push({ x, y });
-}
+for (const y of OLD_Y) for (const x of OLD_X) PLOTS.push({ x, y });
+for (const y of ALL_Y) for (const x of ALL_X) if (!(OLD_Y.includes(y) && OLD_X.includes(x))) PLOTS.push({ x, y });
 
 /** rue la plus proche d'une maison (pour l'adresse) */
 function streetOf(plot) {
@@ -70,7 +86,7 @@ async function mapData(userInfo) {
             rb: Number(r.rb), caves: Number(r.cavecount), slaves: Number(r.slavecount), prestige: Number(r.prestige || 0), street: streetOf(plot),
         });
     }
-    return { w: 1000, h: 700, streets: STREETS, plots: PLOTS.length, plotsXY: PLOTS.map((p, i) => ({ ...p, i })), houses };
+    return { w: WORLD.w, h: WORLD.h, streets: STREETS, plots: PLOTS.length, plotsXY: PLOTS.map((p, i) => ({ ...p, i })), houses };
 }
 
 // ===========================================================================
@@ -117,4 +133,4 @@ async function profileImageUrl(userId) {
     return p.img || config.content.defaultProfileImage || null;
 }
 
-module.exports = { assignHouse, initMap, mapData, profileData, profileImageUrl, STREETS, PLOTS, fmt };
+module.exports = { assignHouse, initMap, mapData, profileData, profileImageUrl, STREETS, PLOTS, fmt, PLOTS };

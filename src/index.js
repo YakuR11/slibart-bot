@@ -89,6 +89,13 @@ client.on(Events.GuildCreate, async (guild) => {
     await handler.registerSlash(client);
 });
 
+// le bot est retire d'un serveur : son clan sort de la guerre
+client.on(Events.GuildDelete, async (guild) => {
+    if (guild.available === false) return; // simple panne Discord, pas un depart
+    log.info(`[clans] serveur quitte : ${guild.name}`);
+    await clans.removeGuild(guild.id).catch(() => {});
+});
+
 client.on(Events.Error, (e) => log.error('[client]', e.message));
 process.on('unhandledRejection', (e) => log.error('[unhandledRejection]', e));
 process.on('uncaughtException', (e) => log.error('[uncaughtException]', e));

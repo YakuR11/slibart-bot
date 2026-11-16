@@ -23,7 +23,7 @@ export class MapView {
         this.tip = el('div.mp-tip', { hidden: true, role: 'status' });
         const zoomIn = el('button.mp-zoom', { type: 'button', 'aria-label': 'Zoomer', onclick: () => this.zoomBy(1.25) }, el('span', { text: '+' }));
         const zoomOut = el('button.mp-zoom', { type: 'button', 'aria-label': 'Dézoomer', onclick: () => this.zoomBy(0.8) }, el('span', { text: '−' }));
-        const recenter = el('button.mp-zoom', { type: 'button', 'aria-label': 'Voir tout le quartier', onclick: () => this.fit() }, html(icon('crosshair', 16)));
+        const recenter = el('button.mp-zoom', { type: 'button', 'aria-label': 'Voir tout le quartier', onclick: () => this.overview() }, html(icon('crosshair', 16)));
         this.wrap = el('section.mp-map', { 'aria-label': 'Carte du quartier' }, this.canvas, this.tip, el('div.mp-tools', {}, zoomIn, zoomOut, recenter));
 
         this.search = el('input', { id: 'mp-search', type: 'search', autocomplete: 'off', placeholder: 'Nom…' });
@@ -41,6 +41,8 @@ export class MapView {
         );
 
         this.data = null;
+        this.ww = 1000; // taille du monde, remplacee par celle du serveur
+        this.wh = 700;
         this.imgs = new Map();
         this.hover = null;
         this.focus = null;
@@ -65,9 +67,12 @@ export class MapView {
         if (r.error) return this.app.toast(r.error, true);
         const first = !this.data;
         this.data = r;
+        this.ww = r.w || 1000;
+        this.wh = r.h || 700;
+        if (this.W) this.minZ = Math.min(this.W / this.ww, this.H / this.wh);
         if (this.blurb) {
             this.blurb.textContent = r.full && r.you == null
-                ? 'Les 20 maisons sont prises. Plus de RB fait briller une maison, ça n\'en crée pas une 21e.'
+                ? `Les ${r.plots} maisons sont prises. Plus de RB fait briller une maison, ça n'en crée pas une de plus.`
                 : BLURB;
         }
         this.decor(r);
@@ -91,16 +96,18 @@ export class MapView {
         let seed = 42;
         const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
         this.trees = [];
-        for (let i = 0; i < 400 && this.trees.length < 70; i++) {
-            const x = 20 + rand() * 960;
-            const y = 20 + rand() * 660;
+        // autant d'arbres au metre carre que dans le quartier d'origine (70 pour 1000 x 700)
+        const want = Math.round(70 * (r.w * r.h) / 700000);
+        for (let i = 0; i < want * 6 && this.trees.length < want; i++) {
+            const x = 20 + rand() * (r.w - 40);
+            const y = 20 + rand() * (r.h - 40);
             if (near(x, y)) continue;
             this.trees.push({ x, y, r: 9 + rand() * 9, shade: rand() });
         }
     }
 
     // -----------------------------------------------------------------------
-    // camera : monde 1000 x 700
+    // camera : la taille du monde vient du serveur (ww x wh)
     // -----------------------------------------------------------------------
     resize() {
         const box = this.wrap.getBoundingClientRect();
@@ -112,14 +119,25 @@ export class MapView {
         this.canvas.height = Math.round(this.H * dpr);
         this.ctx = this.canvas.getContext('2d');
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        this.minZ = Math.min(this.W / 1000, this.H / 700);
+        this.minZ = Math.min(this.W / this.ww, this.H / this.wh);
         if (!this.target && this.cam.z < this.minZ) this.fit(true);
     }
 
     fit(now = false) {
         // remplit le cadre en gardant la place des pp de la premiere rangee (le monde va de -70 a 700 en hauteur)
+        // meme zoom qu'avant l'agrandissement (un cadre de 1040 x 770), centre sur ma maison si j'en ai une
         const z = Math.max(this.W / 1040, this.H / 770) * 0.98;
-        this.flyTo(500, 315, Math.min(z, Math.max(this.minZ || z, z)), now);
+        const mine = this.data?.houses?.find((h) => h.id === this.app.me()?.id);
+        this.flyTo(mine ? mine.x : Math.min(500, this.ww / 2), mine ? mine.y - 35 : Math.min(315, this.wh / 2), Math.max(this.minZ || z, z), now);
+        this.focus = null;
+        this.renderList();
+    }
+
+    /** tout le quartier d'un coup d'oeil */
+    overview() {
+        // les boutons de zoom prennent ~70 px a droite : on cadre le monde dans ce qui reste
+        const z = Math.min((this.W - 70) / this.ww, this.H / (this.wh + 50)) * 0.97;
+        this.flyTo(this.ww / 2 + 35 / z, this.wh / 2 - 25, z);
         this.focus = null;
         this.renderList();
     }
@@ -132,7 +150,7 @@ export class MapView {
     }
 
     zoomBy(f) {
-        const z = Math.max(this.minZ || 0.3, Math.min(3, (this.target?.z ?? this.cam.z) * f));
+        const z = Math.max((this.minZ || 0.3) * 0.8, Math.min(3, (this.target?.z ?? this.cam.z) * f));
         this.flyTo(this.cam.x, this.cam.y, z);
     }
 
@@ -145,8 +163,8 @@ export class MapView {
         const halfW = this.W / 2 / this.cam.z;
         const halfH = this.H / 2 / this.cam.z;
         // marge en haut : les pp et pseudos de la premiere rangee depassent du monde
-        this.cam.x = halfW * 2 >= 1040 ? 500 : Math.max(halfW - 20, Math.min(1020 - halfW, this.cam.x));
-        this.cam.y = halfH * 2 >= 770 ? 350 : Math.max(halfH - 70, Math.min(700 - halfH, this.cam.y));
+        this.cam.x = halfW * 2 >= this.ww + 40 ? this.ww / 2 : Math.max(halfW - 20, Math.min(this.ww + 20 - halfW, this.cam.x));
+        this.cam.y = halfH * 2 >= this.wh + 70 ? this.wh / 2 : Math.max(halfH - 70, Math.min(this.wh - halfH, this.cam.y));
     }
 
     bindPointer() {
@@ -912,7 +930,7 @@ export class MapView {
                 if (y < 12 || y > this.H - 12) continue;
             } else {
                 x = this.sx(st.a[0]);
-                y = Math.max(60, Math.min(this.H - 60, this.sy(st.a[0] % 3 === 0 ? 60 : 640)));
+                y = Math.max(60, Math.min(this.H - 60, this.sy(st.a[0] % 3 === 0 ? st.a[1] : st.b[1])));
                 if (x < 12 || x > this.W - 12) continue;
             }
             ctx.save();

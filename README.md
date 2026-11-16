@@ -75,7 +75,7 @@ Tout est dans `config/content.json` : images de `=cold`/`=remember`/`=bubble`, p
 | Classements | `semaine` (saison) · `top <capital\|niveau\|succes\|winstreak\|insult\|rolls\|mine\|pertes\|gains\|streak\|esclaves\|champions>` · `topc` `topi` `topl`... · `slipbank` |
 | Champions | `rc` · `info <champion>` · `mmr [@user]` (`cave`) · `release <champion>` · `giftchamp <@user> <champion>` |
 | Utilitaires | `help [commande]` · `ping` · `botinfo` |
-| Admin (OWNER_IDS) | `event [mult] [durée]` · `pluie` · `addrb` · `setrb` · `resetcd` · `setsalon` · `drawloto` · `images` · `syncchamps` |
+| Admin (OWNER_IDS) | `event [mult] [durée]` · `pluie` · `salonbot` · `addrb` · `setrb` · `resetcd` · `setsalon` · `drawloto` · `images` · `syncchamps` |
 
 Les mises acceptent `all`, `half`, `1k`, `2.5k`, `1m`. Chaque résultat de casino a des boutons **Rejouer / ½ / x2 / All-in**.
 
@@ -87,6 +87,12 @@ Les mises acceptent `all`, `half`, `1k`, `2.5k`, `1m`. Chaque résultat de casin
 - **Pluies de slips** : pendant l'événement, toutes les 75 à 165 min entre 11h et 1h (heure de Paris), 5 lots tombent dans le salon du casino de chaque serveur, sans @here. Les 5 premiers à cliquer se servent (un lot par personne). `=pluie` en lâche une à la main. Les sacs du chat tombent aussi 3x plus souvent.
 - Les gains du casino ne sont **pas** multipliés : un x5 sur des jeux qui reversent ~98 % ferait gagner à tous les coups et casserait l'économie et la saison. Le casino donne en revanche de l'XP x5.
 - Pendant un événement, la happy hour (x2) ne s'ajoute pas : c'est le plus gros des deux qui compte.
+
+### Ranger le bot dans ses salons
+
+`=salonbot` (admin) dans un salon : les commandes du bot ne marchent plus que là, sur ce serveur. Refais-le dans un autre salon pour en ajouter un, dans le même pour le retirer. `=salonbot liste` les affiche, `=salonbot off` rouvre tout.
+
+Ailleurs, une commande tapée est refusée avec un petit message, puis commande et message sont effacés au bout de 8 secondes (en slash, le refus n'est visible que par la personne). Les messages normaux donnent toujours de l'XP dans tous les salons, et les petites commandes de discussion (`cold`, `bubble`, `trad`, `musique`, `motfav`...) et les commandes admin restent utilisables partout. Tant qu'aucun salon n'est choisi, rien ne change.
 
 ### Ce qui fait revenir les joueurs
 
@@ -152,7 +158,7 @@ Ajouter une commande = ajouter un objet dans un fichier de `src/commands/`, elle
 
 ## ⚔️ Plusieurs serveurs : la guerre de clans
 
-Le bot peut être invité sur plusieurs serveurs. **Un serveur = un clan.** Le compte en banque d'un joueur est le même partout ; il appartient au premier serveur où il utilise le bot (ou ouvre l'app), et peut changer avec `=clan rejoindre` une fois par semaine.
+Le bot peut être invité sur plusieurs serveurs. **Un serveur = un clan.** Le compte en banque d'un joueur est le même partout ; il appartient au premier serveur où il utilise le bot (ou ouvre l'app), et peut changer avec `=clan rejoindre` : libre la première fois, puis une fois par semaine (`=resetcd @membre clan` remet le délai à zéro).
 
 - `=clan` : classement de la semaine, par serveur, au **gain net du casino** de ses membres (la même base que `=semaine`). Le dimanche à 21h, s'il y a au moins deux serveurs qui ont joué, chaque membre du serveur gagnant qui a joué reçoit 1 000 RB + un coffre rare.
 - `=setsalon` se fait **sur chaque serveur** : gros gains, événements, pluies, loterie et fin de saison sont annoncés dans tous. Un gros gain sur un serveur s'affiche donc chez les autres.
@@ -236,7 +242,7 @@ L'activité Discord (la fenêtre dans un vocal) ne s'ouvre pas sur téléphone. 
 - **Work** : plus de page Work dans l'app, tout se fait dans le chat avec `=w`, `=gw` et `=m`. `=buy contremaitre` (75 000 RB, une fois) ramasse le `=work` tout seul, sans payer deux fois le même salaire.
 - **Empire** (façon tycoon) : salaire par `=work` (30 min, pas par heure), esclaves, caves, entretien et prestige en un coup d'œil. On y achète esclaves, caves, contremaître et cadenas (mêmes prix que `=buy`) ; les cartes brillent quand c'est abordable et un « ! » s'allume sur l'onglet quand un nouvel achat devient possible. Barre d'objectif dans l'en-tête, ce qui est prêt dans le chat (`=w`, `=gw`, `=m`, `=d`), quêtes du jour, top 5 (« X vient de te passer devant »), récap au retour (contremaître, entretien) et petit tuto au premier lancement.
 - **Prestige** : à partir de 100 000 RB et 30 esclaves (×1,6 et +5 à chaque niveau), on brûle RB, esclaves et caves contre +20 % permanents sur work, gw, mine, daily et le contremaître (10 niveaux max, x3). Jamais sur le casino ni les quêtes. Le contremaître, l'XP, les objets et les cadres restent. Étoile violette sur la carte et badge sur le profil.
-- **Carte** : 20 maisons, pas une par membre. La 21e personne n'en a pas. Sa pp et son nom au-dessus, ses caves dessinées en dessous. La maison change avec le solde : cabane sous 1 000 RB, maison, villa avec piscine dès 10 000, manoir dès 50 000. Elle grandit un peu (+10 % max à 10 000) et brille plus avec les RB. Les 3 plus riches ont une médaille (couronne pour le 1er), les terrains libres sont « à vendre ». Quartier de nuit avec lampadaires et voitures (figé si le système demande moins d'animations). `=initmap` place les maisons des membres déjà connus, dans la limite des 20 places.
+- **Carte** : 48 maisons (8 x 6), pas une par membre. La 49e personne n'en a pas. Sa pp et son nom au-dessus, ses caves dessinées en dessous. La maison change avec le solde : cabane sous 1 000 RB, maison, villa avec piscine dès 10 000, manoir dès 50 000. Elle grandit un peu (+10 % max à 10 000) et brille plus avec les RB. Les 3 plus riches ont une médaille (couronne pour le 1er), les terrains libres sont « à vendre ». Quartier de nuit avec lampadaires et voitures (figé si le système demande moins d'animations). `=initmap` place les maisons des membres déjà connus, dans la limite des 20 places.
 - **Profils** : clic sur n'importe quelle pp pour voir le profil complet (image, badges, stats, niveau…).
 - **Boutique** : cadres d'avatar à 500 RB (décorations, drapeaux, anneaux), dont certains ne tombent que des coffres, et GIF de victoire perso à 1 000 RB (lien GIPHY uniquement, Tenor ne marche pas). Les anciens skins de billes, traînées et tables ont été remboursés automatiquement.
 

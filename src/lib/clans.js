@@ -1,5 +1,5 @@
 // Guerre de clans : un clan = un serveur Discord. Chaque joueur appartient au premier serveur ou il
-// a utilise le bot (changeable avec =clan rejoindre, une fois par semaine). Le compte en banque reste
+// a utilise le bot. =clan rejoindre change de clan : libre la premiere fois, puis une fois par semaine. Le compte en banque reste
 // le meme partout : c'est le gain net au casino de la semaine (table weekly) qui est additionne par clan.
 const db = require('../db');
 const config = require('../config');
@@ -23,6 +23,16 @@ async function touchGuild(guild) {
     );
 }
 
+/** le bot quitte un serveur : le clan disparait, ses membres en retrouveront un a leur prochaine commande */
+async function removeGuild(guildId) {
+    const id = String(guildId);
+    known.delete(id);
+    const members = await db.q('SELECT id_user FROM profile WHERE clan = ?', [id]);
+    for (const m of members) placed.delete(String(m.id_user));
+    await db.exec('UPDATE profile SET clan = NULL, clan_at = 0 WHERE clan = ?', [id]);
+    await db.exec('DELETE FROM guilds WHERE id = ?', [id]);
+}
+
 /** premier passage d'un joueur sur un serveur : il rejoint ce clan */
 async function seen(guild, userId) {
     if (!guild?.id) return;
@@ -34,7 +44,8 @@ async function ensureClan(userId, guildId) {
     const id = String(userId);
     if (placed.has(id) || id === String(config.casinoId)) return;
     await db.ensureProfile(id);
-    await db.exec('UPDATE profile SET clan = ?, clan_at = ? WHERE id_user = ? AND clan IS NULL', [String(guildId), Date.now(), id]);
+    // placement automatique : clan_at reste a 0, le premier changement volontaire est donc libre
+    await db.exec('UPDATE profile SET clan = ?, clan_at = 0 WHERE id_user = ? AND clan IS NULL', [String(guildId), id]);
     placed.add(id);
 }
 
@@ -48,7 +59,7 @@ async function join(userId, guild) {
     await touchGuild(guild);
     const cur = await clanOf(userId);
     if (cur?.id === guild.id) return { error: `Tu es déjà dans le clan **${guild.name}**.` };
-    if (cur && Date.now() - cur.since < SWITCH_CD) return { error: `Tu as rejoint **${cur.name}** il y a moins de 7 jours. Prochain changement possible <t:${Math.floor((cur.since + SWITCH_CD) / 1000)}:R>.` };
+    if (cur && cur.since > 0 && Date.now() - cur.since < SWITCH_CD) return { error: `Tu as rejoint **${cur.name}** il y a moins de 7 jours. Prochain changement possible <t:${Math.floor((cur.since + SWITCH_CD) / 1000)}:R>.` };
     await db.ensureProfile(userId);
     await db.exec('UPDATE profile SET clan = ?, clan_at = ? WHERE id_user = ?', [guild.id, Date.now(), String(userId)]);
     placed.add(String(userId));
@@ -68,7 +79,9 @@ async function standings(week) {
          ORDER BY net DESC, games DESC`,
         [String(config.casinoId), week],
     );
-    return rows.map((r) => ({ id: String(r.id), name: r.name, net: Number(r.net), games: Number(r.games), players: Number(r.players), members: Number(r.members) }));
+    // un serveur ou personne n'a encore de clan (bot juste invite, serveur de test) n'est pas dans la guerre
+    return rows.map((r) => ({ id: String(r.id), name: r.name, net: Number(r.net), games: Number(r.games), players: Number(r.players), members: Number(r.members) }))
+        .filter((c) => c.members > 0);
 }
 
 /** les joueurs d'un clan cette semaine, du plus gros gain au plus gros trou */
@@ -103,4 +116,4 @@ async function payWar(week) {
     return { winner, table, paid: members.length };
 }
 
-module.exports = { touchGuild, seen, ensureClan, clanOf, join, standings, roster, payWar, SWITCH_CD, WAR_RB, WAR_CRATE };
+module.exports = { touchGuild, removeGuild, seen, ensureClan, clanOf, join, standings, roster, payWar, SWITCH_CD, WAR_RB, WAR_CRATE };

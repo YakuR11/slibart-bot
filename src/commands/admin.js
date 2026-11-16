@@ -53,10 +53,12 @@ module.exports = [
         usage: '<@user> [nom]',
         options: [
             { name: 'membre', type: 'user', required: true, description: 'Cible' },
-            { name: 'nom', type: 'string', description: 'work, gw, mine, rc, link, cave, gamble, slots (tous si vide)' },
+            { name: 'nom', type: 'string', description: 'work, gw, mine, rc, link, cave, gamble, slots, daily, clan (tous si vide)' },
         ],
         async run(ctx, { membre, nom }) {
             await cd.clear(membre.id, nom || null);
+            // le delai de 7 jours entre deux changements de clan
+            if (!nom || nom === 'clan') await db.exec('UPDATE profile SET clan_at = 0 WHERE id_user = ?', [membre.id]);
             if (!nom || nom === 'daily') {
                 // on recule le dernier daily de 20h : reprenable tout de suite sans casser le streak
                 await db.exec('UPDATE profile SET daily_last = ? WHERE id_user = ? AND daily_last > 0', [Date.now() - 20 * 3600 * 1000 - 1000, membre.id]);
@@ -98,14 +100,14 @@ module.exports = [
         description: '[admin] Place une maison sur la carte de l\'app pour chaque membre connu (une fois)',
         async run(ctx) {
             const db = require('../db');
-            const rows = await db.q('SELECT id_user FROM profile WHERE id_user != ? AND (last_seen > 0 OR rb > 0) ORDER BY rb DESC LIMIT 20', [require('../config').casinoId]);
+            const rows = await db.q('SELECT id_user FROM profile WHERE id_user != ? AND (last_seen > 0 OR rb > 0) ORDER BY rb DESC LIMIT ?', [require('../config').casinoId, require('../activity/life').PLOTS.length]);
             const ids = [];
             for (const r of rows) {
                 const u = await ctx.client.users.fetch(String(r.id_user)).catch(() => null);
                 if (u && !u.bot) ids.push(String(r.id_user));
             }
             const n = await require('../activity/life').initMap(ids);
-            await ctx.reply(`🏘️ ${n} maison(s) placée(s). Le quartier a 20 places : au-delà, plus de maison.`);
+            await ctx.reply(`🏘️ ${n} maison(s) placée(s). Le quartier a ${require('../activity/life').PLOTS.length} places : au-delà, plus de maison.`);
         },
     },
     {
@@ -166,6 +168,32 @@ module.exports = [
                 );
             const sent = await announce.send({ content: '@here', allowedMentions: { parse: ['everyone'] }, embeds: [embed] }, ctx.channel.id);
             await ctx.reply(sent ? { content: `✅ Événement lancé et annoncé dans <#${sent.channel.id}>.` } : { content: '@here', allowedMentions: { parse: ['everyone'] }, embeds: [embed] });
+        },
+    },
+    {
+        name: 'salonbot',
+        owner: true,
+        category: 'admin',
+        description: '[admin] Range les commandes du bot dans ce salon (les messages donnent toujours de l\'XP partout)',
+        usage: '· liste · off',
+        options: [{ name: 'action', type: 'string', description: 'liste : voir les salons · off : commandes autorisees partout', choices: ['liste', 'off'] }],
+        async run(ctx, { action }) {
+            const handler = require('../lib/handler');
+            const ids = await handler.cmdChannels(ctx.guild.id);
+            const show = (list) => (list.length ? list.map((id) => `<#${id}>`).join(', ') : 'partout');
+            if (action === 'liste') return ctx.reply(`🩲 Commandes du bot sur **${ctx.guild.name}** : ${show(ids)}.`);
+            if (action === 'off') {
+                await handler.setCmdChannels(ctx.guild.id, []);
+                return ctx.reply('✅ Les commandes du bot marchent de nouveau dans tous les salons.');
+            }
+            // sans argument : ajoute ce salon, ou le retire s'il y est deja
+            const next = ids.includes(ctx.channel.id) ? ids.filter((id) => id !== ctx.channel.id) : [...ids, ctx.channel.id];
+            await handler.setCmdChannels(ctx.guild.id, next);
+            await ctx.reply(
+                next.includes(ctx.channel.id)
+                    ? `✅ <#${ctx.channel.id}> est un salon du bot. Commandes autorisées : ${show(next)}. Ailleurs, la commande est refusée et effacée, mais discuter rapporte toujours de l'XP.`
+                    : `✅ <#${ctx.channel.id}> n'est plus un salon du bot. Commandes autorisées : ${show(next)}.`,
+            );
         },
     },
     {
