@@ -170,7 +170,8 @@ async function welcome(ctx) {
             `🎁 \`${p}daily\` tous les jours : RB + un coffre (rare tous les 7 jours)\n` +
             `💼 \`${p}work\` toutes les 30 min\n` +
             `📜 \`${p}quetes\` 3 quêtes par jour + un coffre\n` +
-            `🎰 \`${p}slots\` \`${p}bj\` \`${p}mines\` \`${p}crash\` \`${p}g\` au casino\n` +
+            `🎰 \`${p}slots\` \`${p}bj\` \`${p}mines\` \`${p}crash\` \`${p}dice\` \`${p}limbo\` au casino\n` +
+            `🩲 \`${p}plinko\` ouvre l'app : 12 jeux avec une vraie interface, tes potes en direct\n` +
             `⚽ \`${p}matchs\` gros matchs foot, Worlds et LEC · \`${p}parier\` pour miser\n` +
             `💎 Jackpot progressif aux slots, loterie à 21h, happy hour surprise le soir\n` +
             `⏱️ \`${p}cd\` : tout ce qui est dispo en 1 clic · \`${p}help\` pour le reste`,

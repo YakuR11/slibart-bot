@@ -11,7 +11,6 @@ const credit = require('../lib/credit');
 const wages = require('../lib/wages');
 const upkeep = require('../lib/upkeep');
 
-const happyTag = (m) => (m > 1 ? ' · 🔥 **HAPPY HOUR x2**' : '');
 const ui = require('../lib/ui');
 
 const RB = () => config.rbEmoji;
@@ -122,7 +121,7 @@ module.exports = [
             const partial = got.already ? ` · ${fmt(got.already)} déjà pris` : '';
             const boss = `${p.foreman ? ' · ⏱️ contremaître' : ''}${p.prestige ? ` · ⭐ x${pm.toFixed(1)}` : ''}`;
             await ctx.reply(
-                `**+${fmt(pay.net)}** ${RB()} pour **${ctx.displayName}** !${happyTag(m)}${credit.note(pay.cut, pay.debt)}\n` +
+                `**+${fmt(pay.net)}** ${RB()} pour **${ctx.displayName}** !${await boost.tag()}${credit.note(pay.cut, pay.debt)}\n` +
                 `-# 💼 Travail ${WORK_BASE}${bonus ? ` · 📜 Bonus esclaves +${fmt(bonus)}` : ''}${boss}${partial} · prochain ${ui.ts(got.slotEnd)}`,
             );
             if (got.fresh) await progress.track(ctx, { work: 1 });
@@ -144,7 +143,7 @@ module.exports = [
             const shown = got.already ? got.paid : pot;
             const mood = shown >= 90 * m ? '🤑' : shown <= 35 * m ? '😐' : '💸';
             const partial = got.already ? ` · ${fmt(got.already)} déjà pris` : '';
-            await ctx.reply(`${mood} **+${fmt(pay.net)}** ${RB()} pour **${ctx.displayName}** !${happyTag(hm)}${credit.note(pay.cut, pay.debt)}\n-# prochain gw ${ui.ts(got.slotEnd)}${partial}`);
+            await ctx.reply(`${mood} **+${fmt(pay.net)}** ${RB()} pour **${ctx.displayName}** !${await boost.tag()}${credit.note(pay.cut, pay.debt)}\n-# prochain gw ${ui.ts(got.slotEnd)}${partial}`);
             if (got.fresh) await progress.track(ctx, { gw: 1 });
         },
     },
@@ -177,7 +176,7 @@ module.exports = [
             const toRare = 7 - (streak % 7);
             const week = Array.from({ length: 7 }, (_, k) => (k < streak % 7 || (streak % 7 === 0 && streak > 0) ? '🔥' : k === 6 ? '🎁' : '▫️')).join('');
             await ctx.reply(
-                `🎁 **+${fmt(pay.net)}** ${RB()} + ${inv.label(crate)} pour **${ctx.displayName}** !${happyTag(m)}${credit.note(pay.cut, pay.debt)}\n` +
+                `🎁 **+${fmt(pay.net)}** ${RB()} + ${inv.label(crate)} pour **${ctx.displayName}** !${await boost.tag()}${credit.note(pay.cut, pay.debt)}\n` +
                 `${week} Streak **${streak}** jour${streak > 1 ? 's' : ''}` +
                 `${streak % 7 === 0 ? ' · coffre rare débloqué !' : ` · coffre rare dans **${toRare}** jour${toRare > 1 ? 's' : ''}`}\n` +
                 `-# demain : +${fmt(DAILY_BASE + DAILY_STREAK_BONUS * Math.min(streak, DAILY_STREAK_MAX))} · \`${config.prefix}ouvrir\` pour ton coffre${lost}`,
@@ -291,7 +290,7 @@ module.exports = [
             await eco.bump(ctx.user.id, { minecount: gain });
             const bal = await eco.balance(ctx.user.id);
             const hype = gain >= 1000 ? '\n🚨🚨 **JACKPOT** 🚨🚨' : '';
-            await ctx.reply(`⛏️ **${ctx.displayName}** a trouvé ${what} : **+${fmt(pay.net)}** ${RB()} (solde ${fmt(bal)})${happyTag(hm)}${credit.note(pay.cut, pay.debt)}${hype}${found ? `\n📦 Et un **coffre** caché dans la roche ! \`${config.prefix}ouvrir\`` : ''}`);
+            await ctx.reply(`⛏️ **${ctx.displayName}** a trouvé ${what} : **+${fmt(pay.net)}** ${RB()} (solde ${fmt(bal)})${await boost.tag()}${credit.note(pay.cut, pay.debt)}${hype}${found ? `\n📦 Et un **coffre** caché dans la roche ! \`${config.prefix}ouvrir\`` : ''}`);
             await progress.track(ctx, { mine: 1 }, { roknit: gain >= 1000 });
         },
     },

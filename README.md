@@ -68,15 +68,23 @@ Tout est dans `config/content.json` : images de `=cold`/`=remember`/`=bubble`, p
 | Général | `cold` `remember` `bubble` `trad [langue] <texte>` `musique <type>` `changemot <mot>` `motfav [@user]` |
 | Profil | `profile [@user]` (`p`) · `set <img\|acc\|bio> <valeur>` · `setimg` `setbio` `setacc` · `wacount` |
 | Capitalism | `bank` (`b`) · `work` (`w`) · `gw` · `daily` · `rsa` · `rob <@user>` · `give <@user> <montant>` · `shop` · `buy <slave\|cave\|contremaitre\|cadenas>` · `mine` (`m`) |
-| Casino | `plinko` (interface) · `gamble <r\|b\|g> <mise>` (`g`) · `slots <mise>` · `blackjack <mise>` (`bj`) · `mines <mise> [bombes]` · `crash <mise> [auto]` · `loto [tickets]` · `duel <@user> <mise>` |
+| Casino | `plinko` (interface) · `dice <mise> [chance %]` · `limbo <mise> [cible]` · `gamble <r\|b\|g> <mise>` (`g`) · `slots <mise>` · `blackjack <mise>` (`bj`) · `mines <mise> [bombes]` · `crash <mise> [auto]` · `loto [tickets]` · `duel <@user> <mise>` |
 | Paris | `matchs [foot\|lol]` · `parier <n°> <1\|N\|2> <mise>` · `mesparis` · `elo` |
 | Progression | `cd` · `coffres` · `ouvrir` · `quetes` (`q`) · `succes` · `niveau` (`lvl`) · `rappels` |
 | Classements | `semaine` (saison) · `top <capital\|niveau\|succes\|winstreak\|insult\|rolls\|mine\|pertes\|gains\|streak\|esclaves\|champions>` · `topc` `topi` `topl`... · `slipbank` |
 | Champions | `rc` · `info <champion>` · `mmr [@user]` (`cave`) · `release <champion>` · `giftchamp <@user> <champion>` |
 | Utilitaires | `help [commande]` · `ping` · `botinfo` |
-| Admin (OWNER_IDS) | `addrb` · `setrb` · `resetcd` · `setsalon` · `drawloto` · `images` · `syncchamps` |
+| Admin (OWNER_IDS) | `event [mult] [durée]` · `addrb` · `setrb` · `resetcd` · `setsalon` · `drawloto` · `images` · `syncchamps` |
 
 Les mises acceptent `all`, `half`, `1k`, `2.5k`, `1m`. Chaque résultat de casino a des boutons **Rejouer / ½ / x2 / All-in**.
+
+### Événement (gains multipliés)
+
+`=event 5 48h` (admin) : pendant 48h, tout ce qui rapporte est **x5** : `work`, `gw`, `daily`, `mine`, le salaire du contremaître et toute l'XP. Annonce avec @here dans le salon du casino (`=setsalon`), rappel 2h avant la fin, annonce de fin. Dans l'app : pastille avec le compte à rebours dans l'en-tête et bandeau vert dans le lobby.
+
+- `=event` : état en cours · `=event stop` : arrêt · `=event 3 2j Nom de l'event` : multiplicateur de 2 à 10, durée en `m`, `h` ou `j`
+- Les gains du casino ne sont **pas** multipliés : un x5 sur des jeux qui reversent ~98 % ferait gagner à tous les coups et casserait l'économie et la saison. Le casino donne en revanche de l'XP x5.
+- Pendant un événement, la happy hour (x2) ne s'ajoute pas : c'est le plus gros des deux qui compte.
 
 ### Ce qui fait revenir les joueurs
 
@@ -139,6 +147,26 @@ Ajouter une commande = ajouter un objet dans un fichier de `src/commands/`, elle
 ## Crédit
 
 `=credit <montant>` : emprunt avec **10 % de frais**. Plafond de dette selon le niveau : **5 000 + 3 000 par niveau** (max 250 000). Tant qu'il reste une dette, une part de tout ce qui rentre part à la banque (10 % à 50 %) et `=give` est bloqué (sinon on pourrait emprunter et tout donner à un pote). `=rembourser <montant|all>` pour solder plus vite.
+
+## 🩲 L'app : le casino du slip (Activity Discord)
+
+L'app s'ouvre sur un **lobby** : bandeau (événement en cours ou reprise de la dernière table), quêtes du jour, puis les 12 jeux en cartes illustrées. Sous chaque carte, le nombre de joueurs vus sur ce jeu dans les 5 dernières minutes (les vrais, rien d'inventé).
+
+| Jeu | Principe | Retour au joueur |
+|---|---|---|
+| Plinko | billes, 3 risques, 8/12/16 rangées, jusqu'à x1000 | ~99 % |
+| Crash | manche commune en direct, encaisse avant l'explosion | voir `crash.js` |
+| Mines | 20 cases, 1 à 15 bombes | 97 % |
+| **Dice** | tirage de 0 à 100, tu règles ta chance (1 à 95 %) au curseur | 98 % |
+| **Limbo** | tu vises un multiplicateur (x1.01 à x1000) | 98 % |
+| **Keno** | 40 numéros, 1 à 10 cochés, 10 tirés, 3 risques, plafond x1000 | ~97,5 % |
+| **Tour du Slip** | 8 étages, 4 difficultés, slips propres ou sales | ~98 % |
+| **HiLo** | plus haute ou plus basse, encaisse quand tu veux | ~98 % |
+| Slots, Blackjack, Loto, Duel | comme avant | |
+
+La roulette a été retirée de l'app (`=gamble` existe toujours dans le chat). Les maths des cinq nouveaux jeux sont dans `src/activity/origmath.js` ; `node scripts/originals-sim.js` recalcule le retour de chaque table. Dice, Limbo et Keno ont un mode rafale (10 / 25 / 50 / ∞), Espace relance la partie, et une Tour ou un HiLo laissé en cours se reprend à la réouverture.
+
+Toutes les illustrations (cartes, logo, slips) sont dessinées en SVG dans `activity/src/art.js` : pour changer une carte, sa couleur ou son étiquette, c'est la liste `GAMES` en bas de ce fichier.
 
 ## 🎯 Plinko : le jeu avec une vraie interface (Activity Discord)
 

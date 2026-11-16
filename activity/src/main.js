@@ -5,7 +5,13 @@ import { CrashView } from './crash.js';
 import { fx } from './fx.js';
 import { avatarEl, setFrame, DEFAULTS } from './avatar.js';
 import { FeedView } from './views/feed.js';
-import { RouletteView } from './views/roulette.js';
+import { DiceView } from './views/dice.js';
+import { LimboView } from './views/limbo.js';
+import { KenoView } from './views/keno.js';
+import { TowerView } from './views/tower.js';
+import { HiloView } from './views/hilo.js';
+import { LobbyView } from './views/lobby.js';
+import { logoSvg } from './art.js';
 import { SlotsView } from './views/slots.js';
 import { BlackjackView } from './views/blackjack.js';
 import { MinesView } from './views/mines.js';
@@ -41,7 +47,8 @@ const state = {
     needSync: false,
     skins: { ...DEFAULTS }, // mon cadre
     page: 'casino',
-    view: 'plinko',
+    view: 'lobby',
+    hot: 0, // parties gagnees d'affilee, tous jeux confondus
 };
 
 /**
@@ -107,6 +114,24 @@ function renderStreak(bump) {
         el.classList.remove('bump');
         void el.offsetWidth;
         el.classList.add('bump');
+    }
+}
+
+/** serie de gains tous jeux confondus : petite flamme a cote du solde */
+function bumpHot(net) {
+    if (!net) return;
+    const before = state.hot;
+    state.hot = net > 0 ? state.hot + 1 : 0;
+    const el = $('hot');
+    el.hidden = state.hot < 2;
+    el.textContent = `🔥 ${state.hot}`;
+    el.title = `${state.hot} parties gagnées d'affilée`;
+    el.classList.toggle('fire', state.hot >= 5);
+    if (state.hot > before && state.hot >= 2) {
+        el.classList.remove('bump');
+        void el.offsetWidth;
+        el.classList.add('bump');
+        if (state.hot >= 3) sound.streak(state.hot);
     }
 }
 
@@ -393,6 +418,7 @@ function celebrate(rec, pos) {
         renderStreak(false);
     }
     addHistory(m, rec.rows, rec.risk);
+    if (!state.auto) bumpHot(net);
     if (m >= 5 && state.me) addFeed(state.me, m, net, ME_COLOR);
     if (!pos) return;
 
@@ -618,7 +644,12 @@ function connectRoom(attempt = 0) {
             case 'crash:state': case 'crash:bet': case 'crash:cancel': case 'crash:cashout': case 'crash:balance': case 'crash:res':
                 crash.onMessage(m); break;
             case 'res': { const r = pending.get(m.rid); pending.delete(m.rid); r?.(m); break; }
-            case 'feed:init': case 'feed:bet': case 'feed:result': case 'feed:cancel': feedView.onMessage(m); break;
+            case 'feed:init': case 'feed:bet': case 'feed:result': case 'feed:cancel':
+                feedView.onMessage(m);
+                // l'horloge du PC peut etre decalee de celle du serveur : on compte l'age des mises cote serveur
+                if (m.type === 'feed:init') for (const e of m.entries || []) lobby.track({ ...e, at: Date.now() - Math.max(0, (m.now || Date.now()) - e.at) });
+                else if (m.entry) lobby.track(m.type === 'feed:bet' ? { ...m.entry, at: Date.now() } : m.entry);
+                break;
             case 'duel:invite': case 'duel:update': case 'duel:reveal': views.duel.onMessage(m); break;
             case 'cfg': { const f = friends.get(m.id); if (f) setFriendCfg(f, m.rows, m.risk); break; }
             case 'drop': if (m.player?.id !== state.me?.id) onFriendDrop(m); break;
@@ -724,6 +755,8 @@ async function boot() {
             else awayReport(app, empireView.st);
         });
         pollTop(12);
+        setTimeout(pollEvent, 800);
+        setInterval(pollEvent, 60_000);
         setInterval(() => empireView.refresh(), 30000);
         setInterval(pollTop, 20000);
         api('api/shop').then(({ ok, data }) => ok && renderMe(data.equipped));
@@ -789,7 +822,7 @@ setMuteIcon(sound.muted);
 const music = new Music($('music'), () => sound.muted);
 $('music').innerHTML = icon('music', 18);
 // icones SVG dans la navigation (pas d'emojis en guise d'icones)
-const NAV_ICONS = { casino: 'casino', empire: 'crown', paris: 'trophy', map: 'map', shop: 'bag', plinko: 'target', crash: 'rocket', roulette: 'roulette', slots: 'slots', blackjack: 'cards', mines: 'bomb', loto: 'ticket', duel: 'swords' };
+const NAV_ICONS = { casino: 'casino', empire: 'crown', paris: 'trophy', map: 'map', shop: 'bag', lobby: 'home', plinko: 'target', crash: 'rocket', slots: 'slots', blackjack: 'cards', mines: 'bomb', loto: 'ticket', duel: 'swords', dice: 'dice', limbo: 'zap', keno: 'grid', tower: 'tower', hilo: 'updown' };
 for (const b of document.querySelectorAll('[data-page], #games [data-game]')) {
     const k = b.dataset.page || b.dataset.game;
     if (NAV_ICONS[k] && b.tagName === 'BUTTON') b.insertAdjacentHTML('afterbegin', icon(NAV_ICONS[k], 16));
@@ -799,7 +832,14 @@ $('bigwin').addEventListener('click', closeBigWin);
 let lastKey = 0;
 document.addEventListener('keydown', (e) => {
     if (e.code !== 'Space' || document.activeElement?.tagName === 'INPUT' || !$('gate').hidden) return;
-    if (state.page !== 'casino' || !['plinko', 'crash'].includes(state.view)) return;
+    if (state.page !== 'casino' || !$('modal').hidden) return;
+    // les autres jeux : Espace = le gros bouton (lancer, distribuer, encaisser)
+    if (views[state.view]?.key) {
+        e.preventDefault();
+        if (!e.repeat) views[state.view].key();
+        return;
+    }
+    if (!['plinko', 'crash'].includes(state.view)) return;
     e.preventDefault();
     const now = performance.now();
     if (state.view === 'crash') {
@@ -857,7 +897,7 @@ function hype(e) {
     const el = $('hype');
     const won = e.net > 0;
     const who = e.winner && e.vs ? (e.winner === e.player.id ? e.player : e.vs) : e.player;
-    const games = { plinko: 'Plinko', crash: 'Crash', roulette: 'Roulette', slots: 'Slots', blackjack: 'Blackjack', mines: 'Mines', loto: 'Loto', duel: 'Duel' };
+    const games = { plinko: 'Plinko', crash: 'Crash', roulette: 'Roulette', slots: 'Slots', blackjack: 'Blackjack', mines: 'Mines', loto: 'Loto', duel: 'Duel', dice: 'Dice', limbo: 'Limbo', keno: 'Keno', tower: 'Tour du Slip', hilo: 'HiLo' };
     const box = document.createElement('div');
     box.className = `hype-box ${won ? 'win' : 'lose'}`;
     const title = document.createElement('div');
@@ -916,12 +956,14 @@ const app = {
         state.sessionNet += r.net || 0;
         renderSession();
         for (const n of r.notices || []) toast(n);
+        bumpHot(r.net || 0);
         scheduleTycoon();
     },
     page: () => state.page,
-    onTycoon: (st) => goal?.set(st),
+    onTycoon: (st) => { goal?.set(st); lobby?.setTycoon(st); },
     markSeen: (st) => goal?.markSeen(st),
-    goGame: (g) => { setPage('casino'); setGame(g); },
+    goGame: (g) => { sound.unlock(); setPage('casino'); setGame(g); },
+    goPage: (p) => setPage(p),
     duelInvite,
 };
 
@@ -944,13 +986,18 @@ const crash = new CrashView({
     get minBet() { return state.cfg?.minBet || 10; },
 });
 const views = {
-    roulette: new RouletteView($('v-roulette'), app),
+    dice: new DiceView($('v-dice'), app),
+    limbo: new LimboView($('v-limbo'), app),
+    keno: new KenoView($('v-keno'), app),
+    tower: new TowerView($('v-tower'), app),
+    hilo: new HiloView($('v-hilo'), app),
     slots: new SlotsView($('v-slots'), app),
     blackjack: new BlackjackView($('v-blackjack'), app),
     mines: new MinesView($('v-mines'), app),
     loto: new LotoView($('v-loto'), app),
     duel: new DuelView($('v-duel'), app),
 };
+const lobby = new LobbyView($('v-lobby'), app);
 const parisView = new ParisView($('p-paris'), app);
 const mapView = new MapView($('p-map'), app);
 const empireView = new EmpireView($('p-empire'), app);
@@ -1035,8 +1082,39 @@ function setGame(game) {
     if (game === 'plinko') board.resize();
     views[game]?.show?.(true);
     if (game === 'duel') $('duel-bang').hidden = true;
-    try { localStorage.setItem('casino-view', game); } catch { /* rien */ }
+    if (game === 'lobby') lobby.show();
+    else lobby.setLast(game);
+    // le jeu ouvert reste visible dans la barre (elle defile sur petit ecran)
+    $('games').querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
+
+// ---------------------------------------------------------------------------
+// evenement en cours (=event) : pastille dans l'en-tete + bandeau du lobby
+// ---------------------------------------------------------------------------
+let eventNow = null;
+function paintEvent() {
+    const ev = eventNow && eventNow.end > Date.now() ? eventNow : null;
+    $('event-pill').hidden = !ev;
+    document.body.classList.toggle('has-event', !!ev);
+    if (!ev) return;
+    const s = Math.floor((ev.end - Date.now()) / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    $('event-mult').textContent = `×${ev.mult}`;
+    $('event-left').textContent = h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min ${String(s % 60).padStart(2, '0')}`;
+    $('event-pill').title = `${ev.name} : work, gw, daily, mine, contremaître et XP ×${ev.mult}`;
+}
+async function pollEvent() {
+    const r = await req('event');
+    if (r.error) return;
+    const was = eventNow;
+    eventNow = r.event || null;
+    lobby.setEvent(eventNow);
+    paintEvent();
+    if (eventNow && !was) toast(`${eventNow.name} : tous tes gains sont ×${eventNow.mult} !`);
+}
+$('event-pill').addEventListener('click', () => setPage('empire'));
+setInterval(paintEvent, 1000);
 
 $('tabs').addEventListener('click', (e) => {
     const b = e.target.closest('[data-page]');
@@ -1051,11 +1129,9 @@ $('games').addEventListener('click', (e) => {
     setGame(b.dataset.game);
 });
 $('me-btn').addEventListener('click', () => state.me && app.openProfile(state.me.id));
-try {
-    const g = localStorage.getItem('casino-view');
-    if (g && g !== 'plinko' && document.querySelector(`[data-game="${g}"]`)) setGame(g);
-    const p = localStorage.getItem('casino-page');
-    if (p && p !== 'casino' && document.querySelector(`#tabs [data-page="${p}"]`)) setPage(p);
-} catch { /* rien */ }
+$('logo').innerHTML = `${logoSvg()}<span>Slibart<small>puant</small></span>`;
+$('logo').addEventListener('click', () => app.goGame('lobby'));
+// on arrive toujours sur le lobby ; le bandeau propose de reprendre la derniere table
+setGame('lobby');
 
 boot();

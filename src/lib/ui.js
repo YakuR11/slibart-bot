@@ -35,12 +35,28 @@ function gameEmbed(ctx, title, color = COLORS.casino) {
     return e;
 }
 
+// Les titres de resultat tournent : meme partie, jamais deux fois la meme phrase d'affilee.
+const TAGS = {
+    big: ['🚨 BIG WIN 🚨', '🚨 LE SLIP EST EN FEU 🚨', '🚨 ÇA SENT LE JACKPOT 🚨', '🚨 BRAQUAGE DU CASINO 🚨'],
+    win: ['🎉 Gagné', '🎉 Ça passe crème', '🎉 Le slip te sourit', '🎉 Propre', '🎉 Dans la poche'],
+    push: ['🤝 Égalité', '🤝 Match nul, slip intact'],
+    lose: ['💀 Perdu', '💀 Ça pue la défaite', '💀 Le slip a parlé', '💀 Aïe', '💀 La banque du slip te remercie'],
+};
+const lastTag = {};
+function tagOf(kind) {
+    const pool = TAGS[kind];
+    let i = Math.floor(Math.random() * pool.length);
+    if (pool.length > 1 && i === lastTag[kind]) i = (i + 1) % pool.length;
+    lastTag[kind] = i;
+    return pool[i];
+}
+
 /** Couleur et titre selon le gain net */
 function resultStyle(net, bet) {
-    if (net > 0 && net >= bet * 5) return { color: COLORS.bigwin, tag: '🚨 BIG WIN 🚨' };
-    if (net > 0) return { color: COLORS.win, tag: '🎉 Gagné' };
-    if (net === 0) return { color: COLORS.push, tag: '🤝 Égalité' };
-    return { color: COLORS.lose, tag: '💀 Perdu' };
+    if (net > 0 && net >= bet * 5) return { color: COLORS.bigwin, tag: tagOf('big') };
+    if (net > 0) return { color: COLORS.win, tag: tagOf('win') };
+    if (net === 0) return { color: COLORS.push, tag: tagOf('push') };
+    return { color: COLORS.lose, tag: tagOf('lose') };
 }
 
 module.exports = { COLORS, ts, bar, money, signed, gameEmbed, resultStyle };

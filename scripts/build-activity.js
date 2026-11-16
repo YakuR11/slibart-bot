@@ -18,7 +18,6 @@ try {
 
 fs.mkdirSync(path.join(DIST, 'fonts'), { recursive: true });
 const fonts = [
-    ['@fontsource/shrikhand/files/shrikhand-latin-400-normal.woff2', 'shrikhand.woff2'],
     ['@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2', 'bricolage.woff2'],
 ];
 for (const [src, dst] of fonts) fs.copyFileSync(require.resolve(src), path.join(DIST, 'fonts', dst));

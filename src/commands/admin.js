@@ -5,7 +5,10 @@ const eco = require('../lib/economy');
 const cd = require('../lib/cooldowns');
 const dd = require('../lib/ddragon');
 const media = require('../lib/media');
-const { fmt } = require('../lib/utils');
+const { fmt, duration } = require('../lib/utils');
+const boost = require('../lib/boost');
+const announce = require('../lib/announce');
+const { EmbedBuilder } = require('discord.js');
 
 const RB = () => config.rbEmoji;
 
@@ -108,6 +111,54 @@ module.exports = [
         async run(ctx) {
             const res = await require('../lib/recap').send(ctx.client);
             await ctx.reply(res.error ? `❌ ${res.error}` : '✅ Récap envoyé dans #daily.');
+        },
+    },
+    {
+        name: 'event',
+        owner: true,
+        category: 'admin',
+        description: '[admin] Lance un evenement : tous les gains (work, gw, daily, mine, contremaitre, XP) multiplies',
+        usage: '[multiplicateur] [duree] · stop',
+        example: 'event 5 48h',
+        options: [
+            { name: 'mult', type: 'string', description: 'Multiplicateur (2 a 10), ou "stop" pour arreter' },
+            { name: 'duree', type: 'string', description: 'Duree : 48h, 90m, 2j (48h par defaut)' },
+            { name: 'nom', type: 'string', description: 'Nom de l\'evenement (Retour du slip par defaut)' },
+        ],
+        async run(ctx, { mult, duree, nom }) {
+            const cur = await boost.event();
+            if (!mult) {
+                return ctx.reply(cur
+                    ? `🩲 **${cur.name}** en cours : gains **x${cur.mult}**, fin <t:${Math.floor(cur.end / 1000)}:R>. \`${config.prefix}event stop\` pour l'arrêter.`
+                    : `Aucun événement en cours. Lance le retour du slip : \`${config.prefix}event 5 48h\``);
+            }
+            if (String(mult).toLowerCase() === 'stop') {
+                if (!cur) return ctx.reply('Aucun événement en cours.');
+                await boost.stopEvent();
+                return ctx.reply(`🛑 **${cur.name}** arrêté. Les gains repassent à la normale.`);
+            }
+            const m = Math.floor(Number(String(mult).replace(/^x/i, '')));
+            if (!(m >= 2 && m <= 10)) return ctx.fail('Multiplicateur entre 2 et 10 (ex. `event 5 48h`).');
+            const d = String(duree || '48h').toLowerCase().match(/^(\d+(?:[.,]\d+)?)\s*(m|min|h|j|d)?$/);
+            if (!d) return ctx.fail('Durée invalide : `48h`, `90m`, `2j`.');
+            const unit = { m: 60_000, min: 60_000, h: 3_600_000, j: 86_400_000, d: 86_400_000 }[d[2] || 'h'];
+            const ms = Math.round(parseFloat(d[1].replace(',', '.')) * unit);
+            if (!(ms >= 60_000 && ms <= 14 * 86_400_000)) return ctx.fail('Durée entre 1 minute et 14 jours.');
+            const ev = await boost.startEvent(m, ms, nom ? String(nom).slice(0, 40) : 'Retour du slip');
+            const end = Math.floor(ev.end / 1000);
+            const embed = new EmbedBuilder()
+                .setColor('#2ee62b')
+                .setTitle(`🩲💨 ${ev.name.toUpperCase()} · GAINS x${ev.mult} 💨🩲`)
+                .setDescription(
+                    `Le slip est de retour et il sent **très** fort.\n\n` +
+                    `Pendant **${duration(ms)}**, tout ce qui rapporte est **x${ev.mult}** :\n` +
+                    `> 💼 \`${config.prefix}work\` · 🎲 \`${config.prefix}gw\` · 🎁 \`${config.prefix}daily\` · ⛏️ \`${config.prefix}mine\`\n` +
+                    `> ⏱️ le salaire du contremaître · ⭐ **toute l'XP** (casino compris)\n\n` +
+                    (nom ? '' : `Et le casino de l'app a été refait : **Dice, Limbo, Keno, Tour du Slip, HiLo** en plus (\`${config.prefix}plinko\` pour l'ouvrir).\n`) +
+                    `Fin <t:${end}:R> (<t:${end}:f>). \`${config.prefix}cd\` pour tout ramasser d'un coup.`,
+                );
+            const sent = await announce.send({ content: '@here', allowedMentions: { parse: ['everyone'] }, embeds: [embed] }, ctx.channel.id);
+            await ctx.reply(sent ? { content: `✅ Événement lancé et annoncé dans <#${sent.channel.id}>.` } : { content: '@here', allowedMentions: { parse: ['everyone'] }, embeds: [embed] });
         },
     },
     {

@@ -97,7 +97,7 @@ export class EmpireView {
         const pm = st.prestige.mult;
         const kpi = (ic, label, value, sub) => el('div.em-kpi', {}, html(icon(ic, 18)), el('span.em-kpi-l', { text: label }), el('b.em-kpi-v', { text: value }), sub ? el('small', { text: sub }) : null);
         this.kpis.replaceChildren(
-            kpi('briefcase', 'Salaire =work', `${fmt(st.income.work)} RB`, `toutes les 30 min${st.foreman ? ' · contremaître' : ''}${st.happy ? ' · happy hour x2' : ''}`),
+            kpi('briefcase', 'Salaire =work', `${fmt(st.income.work)} RB`, `toutes les 30 min${st.foreman ? ' · contremaître' : ''}${st.happy ? ` · bonus x${st.boost || 2}` : ''}`),
             kpi('users', 'Esclaves', `${st.slaves} / ${st.caves * st.items.cave.places}`, `+${fmt(st.income.perSlave)} RB par =work chacun`),
             kpi('home', 'Entretien', st.income.upkeep ? `−${fmt(st.income.upkeep)} RB` : '0 RB', st.income.tax ? `par jour · caves ${fmt(st.income.caveFee)} + taxe ${fmt(st.income.tax)}` : 'par jour (caves)'),
             kpi('star', 'Prestige', st.prestige.level ? `${st.prestige.level} · x${pm.toFixed(1)}` : 'aucun', st.prestige.level ? 'sur work, gw, mine, daily' : `x${st.prestige.nextMult.toFixed(1)} au premier`),

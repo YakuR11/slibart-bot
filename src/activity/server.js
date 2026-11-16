@@ -15,6 +15,8 @@ const plinko = require('./plinko');
 const crash = require('./crash');
 const feed = require('./feed');
 const games = require('./games');
+const originals = require('./originals');
+const boost = require('../lib/boost');
 const life = require('./life');
 const loto = require('../lib/loto');
 const skins = require('../lib/skins');
@@ -180,7 +182,13 @@ async function userInfo(id) {
 async function handleReq(ws, room, s, op, a = {}) {
     const player = { id: s.id, name: s.name, avatar: s.avatar, user: s.user, skins: ws.player.skins || null };
     switch (op) {
-        case 'roulette': return games.roulette(player, a);
+        case 'dice': return originals.dice(player, a);
+        case 'limbo': return originals.limbo(player, a);
+        case 'keno': return originals.keno(player, a);
+        case 'keno.table': return originals.kenoInfo(a);
+        case 'tower': return originals.tower(player, a);
+        case 'hilo': return originals.hilo(player, a);
+        case 'event': return { event: await boost.event() };
         case 'slots': return games.slots(player, a);
         case 'slots.jackpot': return { jackpot: await games.jackpot() };
         case 'blackjack': return games.blackjack(player, a);
@@ -470,7 +478,7 @@ async function start(discordClient) {
         const reply = (m) => ws.readyState === 1 && ws.send(JSON.stringify(m));
         reply({ type: 'hello', color: ws.player.color });
         broadcast(room, { type: 'players', players: players(room) });
-        reply({ type: 'feed:init', entries: feed.snapshot() });
+        reply({ type: 'feed:init', entries: feed.snapshot(), now: Date.now() });
         life.assignHouse(s.id).catch(() => {});
         skins.equipped(s.id).then((eq) => {
             ws.player.skins = eq;

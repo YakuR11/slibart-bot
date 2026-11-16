@@ -4,10 +4,10 @@
 // picot pendant que le serveur repond, puis suit le chemin des qu'il arrive (zero latence ressentie).
 
 const COLORS = {
-    brass: '#d9a441',
-    brassHi: '#f3cf7a',
-    brassLo: '#8f6420',
-    lacquer: '#24070e',
+    brass: '#e6ecf5',
+    brassHi: '#ffffff',
+    brassLo: '#7f93a8',
+    lacquer: '#0f212e',
 };
 // du centre (petit gain) vers les bords (gros multiplicateurs)
 const BUCKET_STOPS = ['#f7e7a0', '#ffd25a', '#ffb627', '#ff8a3d', '#ff5a4e', '#d92f45'];
