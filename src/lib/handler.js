@@ -132,12 +132,53 @@ async function handleInteraction(client, interaction) {
     await run(ctx);
 }
 
+// ---------------------------------------------------------------------------
+// Salons des commandes (=salonbot) : si un serveur en a choisi, les commandes ne marchent que la.
+// Les messages normaux continuent de donner de l'XP partout : seul le bot est range dans ses salons.
+// ---------------------------------------------------------------------------
+const cmdChannelCache = new Map(); // serveur -> { ids, t }
+async function cmdChannels(guildId) {
+    const hit = cmdChannelCache.get(guildId);
+    if (hit && Date.now() - hit.t < 30_000) return hit.ids;
+    const raw = await require('../db').getSetting(`cmd_channels:${guildId}`, '');
+    const ids = String(raw || '').split(',').filter(Boolean);
+    cmdChannelCache.set(guildId, { ids, t: Date.now() });
+    return ids;
+}
+async function setCmdChannels(guildId, ids) {
+    await require('../db').setSetting(`cmd_channels:${guildId}`, ids.join(','));
+    cmdChannelCache.set(guildId, { ids, t: Date.now() });
+}
+/** true si la commande a ete refusee parce qu'on n'est pas dans un salon du bot */
+async function wrongChannel(ctx) {
+    // les commandes admin et les petites commandes de discussion (=cold, =bubble, =trad...) restent partout
+    if (!ctx.guild || ctx.command.owner || ctx.command.category === 'general') return false;
+    const ids = await cmdChannels(ctx.guild.id);
+    if (!ids.length) return false;
+    const here = ctx.channel;
+    if (ids.includes(here.id) || (here.parentId && here.isThread?.() && ids.includes(here.parentId))) return false;
+    const where = ids.slice(0, 3).map((id) => `<#${id}>`).join(' ou ');
+    const text = `🩲 Les commandes du bot, c'est dans ${where}. Ici on discute (et ça rapporte de l'XP quand même).`;
+    if (ctx.isSlash) {
+        await ctx.whisper(text);
+        return true;
+    }
+    // prefixe : on previent, puis on efface la commande et l'avertissement pour ne pas salir le salon
+    const warn = await ctx.message.reply({ content: text, allowedMentions: { repliedUser: true } }).catch(() => null);
+    setTimeout(() => {
+        ctx.message.delete().catch(() => {});
+        warn?.delete().catch(() => {});
+    }, 8_000).unref();
+    return true;
+}
+
 async function run(ctx) {
     const cmd = ctx.command;
     if (cmd.owner && !config.ownerIds.includes(ctx.user.id)) {
         await ctx.fail("Commande reservee aux admins du bot (OWNER_IDS dans le .env).");
         return;
     }
+    if (await wrongChannel(ctx)) return;
     const stopDefer = ctx.autoDefer();
     try {
         await cmd.run(ctx, ctx.args);
@@ -254,4 +295,4 @@ async function registerSlash(client) {
     }
 }
 
-module.exports = { run, load, commands, lookup, CATEGORIES, usage, handleMessage, handleInteraction, registerSlash, buildSlash };
+module.exports = { run, load, commands, lookup, CATEGORIES, usage, handleMessage, handleInteraction, registerSlash, buildSlash, cmdChannels, setCmdChannels };

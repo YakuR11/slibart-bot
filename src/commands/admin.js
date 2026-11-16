@@ -171,6 +171,32 @@ module.exports = [
         },
     },
     {
+        name: 'salonbot',
+        owner: true,
+        category: 'admin',
+        description: '[admin] Range les commandes du bot dans ce salon (les messages donnent toujours de l\'XP partout)',
+        usage: '· liste · off',
+        options: [{ name: 'action', type: 'string', description: 'liste : voir les salons · off : commandes autorisees partout', choices: ['liste', 'off'] }],
+        async run(ctx, { action }) {
+            const handler = require('../lib/handler');
+            const ids = await handler.cmdChannels(ctx.guild.id);
+            const show = (list) => (list.length ? list.map((id) => `<#${id}>`).join(', ') : 'partout');
+            if (action === 'liste') return ctx.reply(`🩲 Commandes du bot sur **${ctx.guild.name}** : ${show(ids)}.`);
+            if (action === 'off') {
+                await handler.setCmdChannels(ctx.guild.id, []);
+                return ctx.reply('✅ Les commandes du bot marchent de nouveau dans tous les salons.');
+            }
+            // sans argument : ajoute ce salon, ou le retire s'il y est deja
+            const next = ids.includes(ctx.channel.id) ? ids.filter((id) => id !== ctx.channel.id) : [...ids, ctx.channel.id];
+            await handler.setCmdChannels(ctx.guild.id, next);
+            await ctx.reply(
+                next.includes(ctx.channel.id)
+                    ? `✅ <#${ctx.channel.id}> est un salon du bot. Commandes autorisées : ${show(next)}. Ailleurs, la commande est refusée et effacée, mais discuter rapporte toujours de l'XP.`
+                    : `✅ <#${ctx.channel.id}> n'est plus un salon du bot. Commandes autorisées : ${show(next)}.`,
+            );
+        },
+    },
+    {
         name: 'pluie',
         owner: true,
         category: 'admin',

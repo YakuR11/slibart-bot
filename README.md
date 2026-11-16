@@ -75,7 +75,7 @@ Tout est dans `config/content.json` : images de `=cold`/`=remember`/`=bubble`, p
 | Classements | `semaine` (saison) · `top <capital\|niveau\|succes\|winstreak\|insult\|rolls\|mine\|pertes\|gains\|streak\|esclaves\|champions>` · `topc` `topi` `topl`... · `slipbank` |
 | Champions | `rc` · `info <champion>` · `mmr [@user]` (`cave`) · `release <champion>` · `giftchamp <@user> <champion>` |
 | Utilitaires | `help [commande]` · `ping` · `botinfo` |
-| Admin (OWNER_IDS) | `event [mult] [durée]` · `pluie` · `addrb` · `setrb` · `resetcd` · `setsalon` · `drawloto` · `images` · `syncchamps` |
+| Admin (OWNER_IDS) | `event [mult] [durée]` · `pluie` · `salonbot` · `addrb` · `setrb` · `resetcd` · `setsalon` · `drawloto` · `images` · `syncchamps` |
 
 Les mises acceptent `all`, `half`, `1k`, `2.5k`, `1m`. Chaque résultat de casino a des boutons **Rejouer / ½ / x2 / All-in**.
 
@@ -87,6 +87,12 @@ Les mises acceptent `all`, `half`, `1k`, `2.5k`, `1m`. Chaque résultat de casin
 - **Pluies de slips** : pendant l'événement, toutes les 75 à 165 min entre 11h et 1h (heure de Paris), 5 lots tombent dans le salon du casino de chaque serveur, sans @here. Les 5 premiers à cliquer se servent (un lot par personne). `=pluie` en lâche une à la main. Les sacs du chat tombent aussi 3x plus souvent.
 - Les gains du casino ne sont **pas** multipliés : un x5 sur des jeux qui reversent ~98 % ferait gagner à tous les coups et casserait l'économie et la saison. Le casino donne en revanche de l'XP x5.
 - Pendant un événement, la happy hour (x2) ne s'ajoute pas : c'est le plus gros des deux qui compte.
+
+### Ranger le bot dans ses salons
+
+`=salonbot` (admin) dans un salon : les commandes du bot ne marchent plus que là, sur ce serveur. Refais-le dans un autre salon pour en ajouter un, dans le même pour le retirer. `=salonbot liste` les affiche, `=salonbot off` rouvre tout.
+
+Ailleurs, une commande tapée est refusée avec un petit message, puis commande et message sont effacés au bout de 8 secondes (en slash, le refus n'est visible que par la personne). Les messages normaux donnent toujours de l'XP dans tous les salons, et les petites commandes de discussion (`cold`, `bubble`, `trad`, `musique`, `motfav`...) et les commandes admin restent utilisables partout. Tant qu'aucun salon n'est choisi, rien ne change.
 
 ### Ce qui fait revenir les joueurs
 
