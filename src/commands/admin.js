@@ -100,14 +100,14 @@ module.exports = [
         description: '[admin] Place une maison sur la carte de l\'app pour chaque membre connu (une fois)',
         async run(ctx) {
             const db = require('../db');
-            const rows = await db.q('SELECT id_user FROM profile WHERE id_user != ? AND (last_seen > 0 OR rb > 0) ORDER BY rb DESC LIMIT 20', [require('../config').casinoId]);
+            const rows = await db.q('SELECT id_user FROM profile WHERE id_user != ? AND (last_seen > 0 OR rb > 0) ORDER BY rb DESC LIMIT ?', [require('../config').casinoId, require('../activity/life').PLOTS.length]);
             const ids = [];
             for (const r of rows) {
                 const u = await ctx.client.users.fetch(String(r.id_user)).catch(() => null);
                 if (u && !u.bot) ids.push(String(r.id_user));
             }
             const n = await require('../activity/life').initMap(ids);
-            await ctx.reply(`🏘️ ${n} maison(s) placée(s). Le quartier a 20 places : au-delà, plus de maison.`);
+            await ctx.reply(`🏘️ ${n} maison(s) placée(s). Le quartier a ${require('../activity/life').PLOTS.length} places : au-delà, plus de maison.`);
         },
     },
     {
