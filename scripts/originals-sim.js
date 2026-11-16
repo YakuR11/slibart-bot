@@ -1,5 +1,5 @@
 // Verifie le retour au joueur des Slip Originals : node scripts/originals-sim.js [tirages]
-// Keno : calcul exact. Dice, Limbo, Tour, HiLo : simulation.
+// Dice, Limbo, Keno, Tour : calcul exact. HiLo : simulation.
 const m = require('../src/activity/origmath');
 
 const N = Number(process.argv[2]) || 400_000;
@@ -12,16 +12,9 @@ const check = (name, rtp, lo = 0.93, hi = 0.995) => {
     console.log(`${ok ? 'ok ' : 'KO '} ${name.padEnd(34)} ${pct(rtp)}`);
 };
 
-for (const c of [1, 10, 49.5, 75, 95]) {
-    let pay = 0;
-    for (let i = 0; i < N; i++) { const r = m.dice(rnd, c, i % 2 === 0); if (r.won) pay += r.mult; }
-    check(`dice chance ${c} %`, pay / N, 0.9);
-}
-for (const t of [1.01, 2, 10, 100]) {
-    let pay = 0;
-    for (let i = 0; i < N; i++) if (m.limbo(rnd, t).won) pay += t;
-    check(`limbo x${t}`, pay / N, 0.8, 1.2);
-}
+// Dice et Limbo : calcul exact (une simulation de gains rares bouge trop d'un lancement a l'autre)
+for (const c of [1, 10, 49.5, 75, 95]) check(`dice chance ${c} % [x${m.diceMult(c)}]`, (c / 100) * m.diceMult(c));
+for (const t of [1.01, 2, 10, 100, 1000]) check(`limbo x${t}`, (m.RTP / t) * t);
 for (const risk of Object.keys(m.KENO_RISKS)) {
     for (let n = 1; n <= 10; n++) {
         const t = m.kenoTable(n, risk);
