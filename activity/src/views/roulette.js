@@ -69,7 +69,7 @@ export class RouletteView {
         c.append(el('div.field', {}, el('span.field-label', { text: 'Jeton' }), this.chipRow), this.total, this.btn, this.gain, this.tools,
             el('p.hint', { text: 'Tes jetons restent sur le tapis : Espace relance la bille. Vise les lignes entre les numéros pour un cheval, les coins pour un carré, le bas d\'une colonne pour une transversale.' }),
             el('details.rt-pays', {}, el('summary', { text: 'Ce que paie chaque pari' }), el('ul', {},
-                ...[['Plein (1 numéro)', '×36'], ['Cheval (2)', '×18'], ['Transversale (3)', '×12'], ['Carré (4)', '×9'], ['Sixain (6)', '×6'], ['Douzaine, colonne', '×3'], ['Rouge, pair, 1-18…', '×2']].map(([a, b]) => el('li', {}, el('span', { text: a }), el('b', { text: b }))))));
+                ...[['Plein (1 numéro)', '×36'], ['Cheval (2)', '×18'], ['Transversale (3)', '×12'], ['Carré (4)', '×9'], ['Sixain (6)', '×6'], ['Douzaine (1 à 12…), colonne', '×3'], ['Rouge, pair, 1-18…', '×2']].map(([a, b]) => el('li', {}, el('span', { text: a }), el('b', { text: b }))))));
         this.paint();
         this.loop = this.loop.bind(this);
     }
@@ -113,7 +113,7 @@ export class RouletteView {
             return s;
         };
         const cell = (id, cls, text, label) => {
-            const b = el(`button.rt-cell${cls}`, { type: 'button', 'aria-label': label || text, dataset: { id } }, el('span', { text }));
+            const b = el(`button.rt-cell${cls}`, { type: 'button', 'aria-label': label || text, title: `${label || text} · paie ×${rl.BETS.get(id).mult}`, dataset: { id } }, el('span', { text }));
             this.cells.set(id, b);
             return b;
         };
@@ -352,7 +352,9 @@ export class RouletteView {
         const winners = new Set(r.wins.map((w) => w.id));
         for (const id of this.bets.keys()) this.cells.get(id)?.classList.add(winners.has(id) ? 'won' : 'lost');
         this.info.textContent = `${r.n} ${name}${r.n ? ` · ${r.n % 2 ? 'impair' : 'pair'}` : ''}`;
-        this.sub.textContent = won ? `${r.wins.length} pari${r.wins.length > 1 ? 's' : ''} gagnant${r.wins.length > 1 ? 's' : ''} · ${signed(r.net)} RB` : r.net === 0 ? 'Mise récupérée' : `${signed(r.net)} RB`;
+        // on montre ce que rend chaque pari gagnant (×3 pour une douzaine...), puis le bilan du tour
+        const detail = r.wins.map((w) => { const d = rl.BETS.get(w.id); return `${d.kind === 'simple' || d.kind === 'colonne' ? d.label : d.kind} ×${d.mult} : ${fmt(w.amount)} → ${fmt(w.pay)}`; }).join(' · ');
+        this.sub.textContent = r.wins.length ? `${detail} · bilan ${signed(r.net)} RB` : `${signed(r.net)} RB`;
         this.sub.className = `rt-sub ${won ? 'win' : r.net < 0 ? 'lose' : ''}`;
         this.hist.prepend(el(`span.${r.color}`, { text: String(r.n) }));
         while (this.hist.children.length > 12) this.hist.lastChild.remove();

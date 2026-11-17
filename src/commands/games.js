@@ -155,12 +155,13 @@ module.exports = [
             await sleep(1200);
             const st = ui.resultStyle(net, bet);
             const won = new Map(wins.map((w) => [w.id, w.pay]));
-            const lines = ids.map((id) => (won.has(id) ? `✅ ${label(id)} → **+${fmt(won.get(id) - each)}**` : `❌ ${label(id)}`));
+            const mult = (id) => `×${rl.BETS.get(id).mult}`;
+            const lines = ids.map((id) => (won.has(id) ? `✅ ${label(id)} ${mult(id)} : ${fmt(each)} → **${fmt(won.get(id))}**` : `❌ ${label(id)}`));
             const final = ui.gameEmbed(ctx, title, st.color)
                 .setDescription(
                     `## ${wheelAround(n)}\n` +
                     `${st.tag} — la bille s'arrête sur ${pocket(n)}\n` +
-                    `${ids.length > 1 ? `${lines.join('\n')}\n` : ''}${ui.signed(net)}${cut ? `\n🏦 La banque prend **${fmt(cut)}** · dette **${fmt(debt)}**` : ''}`,
+                    `${ids.length > 1 || won.size ? `${lines.join('\n')}\n` : ''}${ui.signed(net)}${cut ? `\n🏦 La banque prend **${fmt(cut)}** · dette **${fmt(debt)}**` : ''}`,
                 )
                 .setFooter({ text: `Solde : ${fmt(after)}` });
             await casino.editReply(ctx, msg, { embeds: [final], components: [casino.replayRow(bet)] }).catch(() => {});
